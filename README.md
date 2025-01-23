@@ -29,7 +29,7 @@ uvicorn app:app --reload
 
 ## API Endpoints
 
-### `POST /api/ms/conversational-agent/handle-message`
+### `POST /api/ms/conversational-engine/handle-message`
 
 This endpoint is used to send a user query to the conversational agent and get a response based on the agent configuration.
 
@@ -50,7 +50,7 @@ This endpoint is used to send a user query to the conversational agent and get a
 1. **Query: "hola que vendes"**
 
 ```bash
-curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-message' --header 'Content-Type: application/json' --data-raw '{
+curl --location 'http://localhost:8000/api/ms/conversational-engine/handle-message' --header 'Content-Type: application/json' --data-raw '{
     "query": "hola que vendes",
     "agent_id": "mi_primer_agente_base_seller_chat",
     "parameter_prompt": {
@@ -101,7 +101,7 @@ curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-messag
 2. **Query: "ayudame con info para zapatos super start"**
 
 ```bash
-curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-message' --header 'Content-Type: application/json' --data '{
+curl --location 'http://localhost:8000/api/ms/conversational-engine/handle-message' --header 'Content-Type: application/json' --data '{
     "query": "ayudame con info para zapatos super start",
     "agent_id": "mi_primer_agente_info",
     "parameter_prompt": null,
@@ -113,7 +113,7 @@ curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-messag
 3. **Query: "quiero cambiar 2000mxn a usd"**
 
 ```bash
-curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-message' --header 'Content-Type: application/json' --data '{
+curl --location 'http://localhost:8000/api/ms/conversational-engine/handle-message' --header 'Content-Type: application/json' --data '{
     "query": "quiero cambiar 2000mxn a usd",
     "agent_id": null,
     "parameter_prompt": null,
@@ -125,7 +125,7 @@ curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-messag
 4. **Query: "cual es el precio de las supertart dolares en mxn son 200000"**
 
 ```bash
-curl --location 'http://localhost:8000/api/ms/conversational-agent/handle-message' --header 'Content-Type: application/json' --data '{
+curl --location 'http://localhost:8000/api/ms/conversational-engine/handle-message' --header 'Content-Type: application/json' --data '{
     "query": "cual es el precio de las supertart dolares en mxn son 200000",
     "agent_id": "mi_primer_agente_deporte",
     "parameter_prompt": null,
