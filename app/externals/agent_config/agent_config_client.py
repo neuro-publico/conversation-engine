@@ -11,12 +11,7 @@ async def get_agent(data: AgentConfigRequest) -> AgentConfigResponse:
     headers = {'Content-Type': 'application/json'}
 
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, json=data.dict(), headers=headers)
-            print(response.json())
-            return AgentConfigResponse(**response.json())
-        except Exception as e:
-            print(e)
-
         response = await client.post(url, json=data.dict(), headers=headers)
+        response.raise_for_status()
+
         return AgentConfigResponse(**response.json())

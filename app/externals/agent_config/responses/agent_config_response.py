@@ -19,13 +19,13 @@ class Config(BaseModel):
     description: str
     api: str
     method: str
-    body: Dict[str, str]
-    headers: List[Dict[str, str]]
+    body: Optional[Dict[str, str]]
+    headers: Optional[List[Dict[str, str]]]
     query_params: Optional[Dict[str, str]]
 
 
 class Tool(BaseModel):
-    tool_id: int
+    id: int
     tool_name: str
     description: str
     config: Config
@@ -43,3 +43,4 @@ class AgentConfigResponse(BaseModel):
     provider_ai: str
     model_ai: str
     preferences: AgentPreferences
+    tools: Optional[List[dict]]

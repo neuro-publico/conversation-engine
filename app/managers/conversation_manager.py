@@ -23,9 +23,7 @@ class ConversationManager(ConversationManagerInterface):
         )
 
         history = self.get_conversation_history(request.conversation_id) or []
-
-        #TODO GENERATE TOOLS FROM AGENT_CONFIG
-        tools = ToolGenerator.generate_tools()
+        tools = ToolGenerator.generate_tools(agent_config.tools)
 
         processor = (
             AgentProcessor(llm, agent_config.prompt, history, tools)

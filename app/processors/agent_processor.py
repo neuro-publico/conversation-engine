@@ -41,11 +41,10 @@ class AgentProcessor(ConversationProcessor):
                 "input": query,
                 "agent_scratchpad": ""
             })
-            print(f"Debug - Resultado completo: {result}")
             return result
         except Exception as e:
             print(f"Error durante la ejecución del agente: {str(e)}")
             print(f"Traceback completo:", traceback.format_exc())
             return {
                 "message": "Lo siento, no pude procesar tu solicitud correctamente. Por favor, intenta reformular tu pregunta."
-            } 
+            }
