@@ -1,0 +1,39 @@
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Python egg files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# VS Code settings
+.vscode/
+
+# macOS files
+.DS_Store
+
+# PyCharm files
+.idea/
+
+# Uvicorn log files
+*.db
+logs/
+
+# Environment variables file
+.env
+
+# Pinecone-related cache
+pinecone.cache
