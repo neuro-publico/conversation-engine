@@ -1,16 +1,25 @@
-
 # Conversational Engine Microservice
 
 This microservice is built using Python with FastAPI and communicates with external services like `agent-config` and AI providers to handle user queries. It utilizes the LangChain library to interact with the AI models and generate appropriate responses based on the agent configuration.
 
-## Features
+## Construcción y Ejecución con Docker
 
-- **Handles User Queries:** The microservice receives a query from a user and processes it by calling the external `agent-config` service to retrieve the configuration of the agent.
-- **Agent Configuration:** The microservice integrates with an external service (`agent-config`) to fetch the agent configuration based on the query context.
-- **AI Interaction:** Once the agent configuration is retrieved, it uses LangChain to communicate with AI models and provides responses to user queries.
-- **Handles Multiple Agent Types:** The service supports different types of agents, which can be configured according to the query context.
+### Usando Docker
 
-## Setup
+1. Construir la imagen:
+```bash
+docker build -t conversational-agent .
+```
+
+2. Ejecutar el contenedor:
+```bash
+docker run -p 8000:8000 conversational-agent
+```
+
+La API estará disponible en `http://localhost:8000`
+
+
+## Setup Local
 
 1. Clone this repository.
 2. Install the necessary dependencies using pip:
@@ -26,6 +35,23 @@ uvicorn app:app --reload
 ```
 
 4. The service will be running on `http://localhost:8000`.
+
+## Documentación API
+
+### Colección Postman
+Puedes encontrar todos los endpoints y ejemplos en nuestra colección de Postman:
+[Colección Postman](https://sumer-07062021.postman.co/workspace/SUMER~148b538f-9145-4526-8806-bb1cc611d3bd/collection/16642082-01b51a02-01f6-4a39-959e-d1f4675e4bd2?action=share&creator=16642082&active-environment=16640760-5fde9fd8-7328-4098-8d82-c9d5fa254624)
+
+### Documentación Swagger
+Una vez que el servidor esté corriendo, puedes acceder a la documentación Swagger en:
+`http://localhost:8000/docs`
+
+## Features
+
+- **Handles User Queries:** The microservice receives a query from a user and processes it by calling the external `agent-config` service to retrieve the configuration of the agent.
+- **Agent Configuration:** The microservice integrates with an external service (`agent-config`) to fetch the agent configuration based on the query context.
+- **AI Interaction:** Once the agent configuration is retrieved, it uses LangChain to communicate with AI models and provides responses to user queries.
+- **Handles Multiple Agent Types:** The service supports different types of agents, which can be configured according to the query context.
 
 ## API Endpoints
 
