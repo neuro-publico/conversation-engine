@@ -26,3 +26,7 @@ async def calculator(
     print("Datos recibidos en la solicitud:", request)
     print("Headers recibidos:", dict(fastapi_request.headers))
     return {"result": 20000}
+
+@router.get("/health")
+async def health_check():
+    return {"status": "OK"}
