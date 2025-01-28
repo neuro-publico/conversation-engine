@@ -15,6 +15,7 @@ class ConversationManager(ConversationManagerInterface):
 
     async def process_conversation(self, request: MessageRequest, agent_config: AgentConfigResponse) -> dict[str, Any]:
         ai_provider = AIProviderFactory.get_provider(agent_config.provider_ai)
+
         llm = ai_provider.get_llm(
             model=agent_config.model_ai,
             temperature=agent_config.preferences.temperature,

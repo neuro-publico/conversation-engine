@@ -12,4 +12,5 @@ class AIProviderFactory:
         if provider_name not in providers:
             raise ValueError(f"El proveedor de AI '{provider_name}' no está implementado")
 
-        return providers[provider_name]
+        if provider_name == "openai":
+            return OpenAIProvider()

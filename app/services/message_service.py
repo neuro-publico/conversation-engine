@@ -19,6 +19,7 @@ class MessageService(MessageServiceInterface):
         )
 
         agent_config = await get_agent(data)
+
         return await self.conversation_manager.process_conversation(
             request=request,
             agent_config=agent_config

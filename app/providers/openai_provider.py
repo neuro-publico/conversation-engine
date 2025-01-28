@@ -12,5 +12,5 @@ class OpenAIProvider(AIProviderInterface):
 
         return ChatOpenAI(
             model=model,
-            **model_kwargs
+            ##**model_kwargs
         )
