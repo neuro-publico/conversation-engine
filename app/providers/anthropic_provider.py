@@ -1,4 +1,4 @@
-from langchain.chat_models import ChatAnthropic
+from langchain_anthropic import ChatAnthropic
 from app.providers.ai_provider_interface import AIProviderInterface
 
 

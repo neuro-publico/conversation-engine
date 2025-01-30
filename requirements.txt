@@ -9,3 +9,4 @@ langchain-openai
 openai
 langgraph>=0.0.10
 langchain-core>=0.1.17
+langchain-anthropic
