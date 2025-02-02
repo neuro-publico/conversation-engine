@@ -1,3 +1,4 @@
+from app.requests.recommend_product_request import RecommendProductRequest
 from fastapi import APIRouter, Depends, Request
 
 from app.requests.message_request import MessageRequest
@@ -11,21 +12,21 @@ router = APIRouter(
 
 @router.post("/handle-message")
 async def handle_message(
-    request: MessageRequest, 
-    message_service: MessageServiceInterface = Depends()
+        request: MessageRequest,
+        message_service: MessageServiceInterface = Depends()
 ):
     response = await message_service.handle_message(request)
     return response
 
-@router.post("/calculator")
-async def calculator(
-    request: dict,
-    fastapi_request: Request
+
+@router.post("/recommend-product")
+async def recommend_products(
+        request: RecommendProductRequest,
+        message_service: MessageServiceInterface = Depends()
 ):
-    print("-------------------------")
-    print("Datos recibidos en la solicitud:", request)
-    print("Headers recibidos:", dict(fastapi_request.headers))
-    return {"result": 20000}
+    response = await message_service.recommend_products(request)
+    return response
+
 
 @router.get("/health")
 async def health_check():
