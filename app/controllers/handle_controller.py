@@ -1,3 +1,4 @@
+from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from fastapi import APIRouter, Depends, Request
 
@@ -25,6 +26,15 @@ async def recommend_products(
         message_service: MessageServiceInterface = Depends()
 ):
     response = await message_service.recommend_products(request)
+    return response
+
+
+@router.post("/generate-pdf")
+async def generate_pdf(
+        request: GeneratePdfRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.generate_pdf(request)
     return response
 
 
