@@ -94,7 +94,7 @@ class MessageService(MessageServiceInterface):
         file_name = f"{request.product_name.replace(' ', '_').lower()}_{unique_id}"
 
         pdf_generator = PDFManualGenerator(request.product_name)
-        pdf = await pdf_generator.create_manual(combined_data, f"{file_name}.pdf")
+        pdf = await pdf_generator.create_manual(combined_data)
 
         return await upload_file(
             S3UploadRequest(file=pdf, folder=f"{request.owner_id}/pdfs",
