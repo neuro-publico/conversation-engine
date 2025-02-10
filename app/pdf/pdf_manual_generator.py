@@ -9,7 +9,7 @@ class PDFManualGenerator:
         self.product_name = product_name
         self.pdf = PDFGenerator(product_name)
 
-    async def create_manual(self, data: dict, file_name: str) -> str:
+    async def create_manual(self, data: dict) -> str:
         self.pdf.add_cover_page(
             f"User Manual for {self.product_name}",
             "Everything You Need to Know to Get Started"
@@ -19,12 +19,9 @@ class PDFManualGenerator:
         for key in PDF_MANUAL_SECTION_ORDER:
             self.pdf.add_section(PDF_MANUAL_SECTIONS[key], data.get(key, ""))
 
-        self.pdf.output(file_name)
-
-        with open(file_name, "rb") as f:
-            pdf_bytes = f.read()
+        pdf_str = self.pdf.output(dest="S")
+        pdf_bytes = pdf_str.encode("latin1")
 
         base64_str = base64.b64encode(pdf_bytes).decode("utf-8")
-        os.remove(file_name)
 
         return base64_str
