@@ -12,3 +12,6 @@ class MessageServiceInterface(ABC):
     @abstractmethod
     async def recommend_products(self, request: RecommendProductRequest):
         pass
+
+    async def generate_pdf(self, request):
+        pass
