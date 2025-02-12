@@ -4,7 +4,6 @@ import asyncio
 
 from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID
 from app.externals.agent_config.agent_config_client import get_agent
-from app.externals.aliexpress.requests.aliexpress_search_request import AliexpressSearchRequest
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
 from app.pdf.helpers import clean_text, clean_json
@@ -16,9 +15,10 @@ from app.responses.recommend_product_response import RecommendProductResponse
 from app.services.message_service_interface import MessageServiceInterface
 from app.managers.conversation_manager_interface import ConversationManagerInterface
 from fastapi import Depends
-from app.externals.aliexpress.aliexpress_client import search_products
 from app.configurations.pdf_manual_config import PDF_MANUAL_SECTIONS
 from app.pdf.pdf_manual_generator import PDFManualGenerator
+from app.externals.amazon.requests.amazon_search_request import AmazonSearchRequest
+from app.externals.amazon.amazon_client import search_products
 
 
 class MessageService(MessageServiceInterface):
@@ -48,9 +48,9 @@ class MessageService(MessageServiceInterface):
         ))
 
         json_data = json.loads(data['text'])
-        aliexpress_data = await search_products(AliexpressSearchRequest(q=json_data['recommended_product']))
+        amazon_data = await search_products(AmazonSearchRequest(query=json_data['recommended_product']))
 
-        return RecommendProductResponse(ai_response=json_data, products=aliexpress_data.get_products())
+        return RecommendProductResponse(ai_response=json_data, products=amazon_data.get_products())
 
     async def process_multiple_agents(self, agent_queries: list[dict]) -> dict:
         tasks = [
@@ -94,7 +94,7 @@ class MessageService(MessageServiceInterface):
         file_name = f"{request.product_name.replace(' ', '_').lower()}_{unique_id}"
 
         pdf_generator = PDFManualGenerator(request.product_name)
-        pdf = await pdf_generator.create_manual(combined_data, f"{file_name}.pdf")
+        pdf = await pdf_generator.create_manual(combined_data)
 
         return await upload_file(
             S3UploadRequest(file=pdf, folder=f"{request.owner_id}/pdfs",
