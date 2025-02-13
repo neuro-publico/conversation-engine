@@ -2,7 +2,7 @@ import json
 import uuid
 import asyncio
 
-from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID
+from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID
 from app.externals.agent_config.agent_config_client import get_agent
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
@@ -41,8 +41,10 @@ class MessageService(MessageServiceInterface):
         )
 
     async def recommend_products(self, request: RecommendProductRequest):
+        agent_id = AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID if request.similar else AGENT_RECOMMEND_PRODUCTS_ID
+        
         data = await self.handle_message(MessageRequest(
-            agent_id=AGENT_RECOMMEND_PRODUCTS_ID,
+            agent_id=agent_id,
             conversation_id="",
             query=f"Product Name: {request.product_name} Description: {request.product_description}",
         ))
