@@ -14,9 +14,9 @@ class SimpleProcessor(ConversationProcessor):
         if files:
             for file in files:
                 if file.get('type') == 'image':
-                    messages.append(("system", f"<image>{file['content']}</image>"))
+                    messages.append(("system", f"<image>{file['url']}</image>"))
                 else:
-                    messages.append(("system", f"<file>\n{file['path']}\n```{file['content']}```\n</file>"))
+                    messages.append(("system", f"<file url='{file['url']}'></file>"))
 
         messages.append(("human", "{input}"))
         
