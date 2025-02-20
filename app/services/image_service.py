@@ -70,13 +70,15 @@ class ImageService(ImageServiceInterface):
                     raise Exception(f"Error {response.status}: {await response.text()}")
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
+        original_image_response = await self._upload_to_s3(request.file, 0, owner_id)
+        
         message_request = MessageRequest(
             query="Attached is the product image.",
             agent_id=AGENT_IMAGE_VARIATIONS,
             conversation_id="",
             files=[{
                 "type": "image",
-                "path": "without.png",
+                "url": original_image_response.s3_url,
                 "content": request.file
             }]
         )
@@ -90,4 +92,7 @@ class ImageService(ImageServiceInterface):
         ]
         generated_urls = await asyncio.gather(*tasks)
 
-        return {"urls": generated_urls}
+        # Agregamos la URL de la imagen original al principio de la lista
+        all_urls = [original_image_response.s3_url] + generated_urls
+
+        return {"urls": all_urls}
