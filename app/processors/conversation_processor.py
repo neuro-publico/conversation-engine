@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langchain_core.language_models import BaseChatModel
 
 
@@ -8,5 +8,5 @@ class ConversationProcessor:
         self.context = context
         self.history = history
 
-    async def process(self, query: str) -> Dict[str, Any]:
-        raise NotImplementedError 
+    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+        raise NotImplementedError

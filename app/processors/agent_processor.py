@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from app.processors.conversation_processor import ConversationProcessor
@@ -11,7 +11,7 @@ class AgentProcessor(ConversationProcessor):
         super().__init__(llm, context, history)
         self.tools = tools
 
-    async def process(self, query: str) -> Dict[str, Any]:
+    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", "{context}"),
             MessagesPlaceholder(variable_name="chat_history"),

@@ -8,3 +8,4 @@ class MessageRequest(BaseModel):
     conversation_id: str
     metadata_filter: Optional[dict] = None
     parameter_prompt: Optional[dict] = None
+    files: Optional[List[Dict[str, str]]] = None
