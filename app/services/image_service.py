@@ -7,6 +7,7 @@ from app.externals.s3_upload.responses.s3_upload_response import S3UploadRespons
 from app.requests.message_request import MessageRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
+from app.responses.generate_image_response import GenerateImageResponse
 from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.externals.s3_upload.s3_upload_client import upload_file
@@ -71,7 +72,7 @@ class ImageService(ImageServiceInterface):
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         original_image_response = await self._upload_to_s3(request.file, 0, owner_id)
-        
+
         message_request = MessageRequest(
             query="Attached is the product image.",
             agent_id=AGENT_IMAGE_VARIATIONS,
@@ -92,7 +93,5 @@ class ImageService(ImageServiceInterface):
         ]
         generated_urls = await asyncio.gather(*tasks)
 
-        # Agregamos la URL de la imagen original al principio de la lista
-        all_urls = [original_image_response.s3_url] + generated_urls
-
-        return {"urls": all_urls}
+        return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
+                                     generated_prompt=prompt)
