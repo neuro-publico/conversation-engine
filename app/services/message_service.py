@@ -42,7 +42,7 @@ class MessageService(MessageServiceInterface):
 
     async def recommend_products(self, request: RecommendProductRequest):
         agent_id = AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID if request.similar else AGENT_RECOMMEND_PRODUCTS_ID
-        
+
         data = await self.handle_message(MessageRequest(
             agent_id=agent_id,
             conversation_id="",

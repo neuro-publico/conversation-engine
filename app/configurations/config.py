@@ -15,3 +15,12 @@ RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
 RAPIDAPI_HOST = os.getenv('RAPIDAPI_HOST')
 
 S3_UPLOAD_API = os.getenv('S3_UPLOAD_API')
+
+AGENT_IMAGE_VARIATIONS = "agent_image_variations"
+
+AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
+
+STABILITY_API_KEY: str = os.getenv('STABILITY_API_KEY')
+STABILITY_API_URL: str = os.getenv('STABILITY_API_URL')
+
+API_KEY: str = os.getenv('API_KEY')
