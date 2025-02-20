@@ -27,20 +27,21 @@ class ImageService(ImageServiceInterface):
         self.stability_api_key = STABILITY_API_KEY
         self.stability_api_url = STABILITY_API_URL
 
-    async def _upload_to_s3(self, image_base64: str, index: int, owner_id: str) -> S3UploadResponse:
+    async def _upload_to_s3(self, image_base64: str, owner_id: str, folder_id: str,
+                            prefix_name: str) -> S3UploadResponse:
         unique_id = uuid.uuid4().hex[:8]
-        file_name = f"variation_{index}_{unique_id}"
+        file_name = f"{prefix_name}_{unique_id}"
 
         return await upload_file(
             S3UploadRequest(
                 file=image_base64,
-                folder=f"{owner_id}/products/variations",
+                folder=f"{owner_id}/products/variations/{folder_id}",
                 filename=file_name
             )
         )
 
-    async def _generate_single_variation(self, image_base64: str, prompt: str, negative_prompt: str, index: int,
-                                         owner_id: str) -> str:
+    async def _generate_single_variation(self, image_base64: str, prompt: str, negative_prompt: str, owner_id: str,
+                                         folder_id: str) -> str:
         image_bytes = base64.b64decode(image_base64)
         form_data = aiohttp.FormData()
         form_data.add_field('image',
@@ -65,13 +66,14 @@ class ImageService(ImageServiceInterface):
                 if response.status == 200:
                     content = await response.read()
                     content_base64 = base64.b64encode(content).decode('utf-8')
-                    response = await self._upload_to_s3(content_base64, index, owner_id)
+                    response = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
                     return response.s3_url
                 else:
                     raise Exception(f"Error {response.status}: {await response.text()}")
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
-        original_image_response = await self._upload_to_s3(request.file, 0, owner_id)
+        folder_id = uuid.uuid4().hex[:8]
+        original_image_response = await self._upload_to_s3(request.file, owner_id, folder_id, "original")
 
         message_request = MessageRequest(
             query="Attached is the product image.",
@@ -88,7 +90,7 @@ class ImageService(ImageServiceInterface):
         prompt = response["text"]
         negative_prompt = "text, letters, brand logos, brand names, symbols"
         tasks = [
-            self._generate_single_variation(request.file, prompt, negative_prompt, i, owner_id)
+            self._generate_single_variation(request.file, prompt, negative_prompt, owner_id, folder_id)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
