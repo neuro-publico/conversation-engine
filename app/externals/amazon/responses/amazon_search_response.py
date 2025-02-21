@@ -19,15 +19,17 @@ class AmazonSearchResponse:
         products = []
         
         for item in self.raw_response.get('data', {}).get('products', []):
-            product = {
-                "source": "amazon",
-                "external_id": item.get('asin', ''),
-                "name": item.get('product_title', ''),
-                "url_website": item.get('product_url', ''),
-                "url_image": item.get('product_photo', ''),
-                "price": self._format_price(item.get('product_price'))
-            }
-            products.append(product)
+            price = self._format_price(item.get('product_price'))
+            if price is not None:
+                product = {
+                    "source": "amazon",
+                    "external_id": item.get('asin', ''),
+                    "name": item.get('product_title', ''),
+                    "url_website": item.get('product_url', ''),
+                    "url_image": item.get('product_photo', ''),
+                    "price": price
+                }
+                products.append(product)
 
         return products
 
