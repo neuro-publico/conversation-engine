@@ -20,7 +20,7 @@ class AmazonSearchResponse:
         
         for item in self.raw_response.get('data', {}).get('products', []):
             price = self._format_price(item.get('product_price'))
-            if price is not None:
+            if price is not None and price > 0:
                 product = {
                     "source": "amazon",
                     "external_id": item.get('asin', ''),
