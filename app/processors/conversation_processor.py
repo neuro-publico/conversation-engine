@@ -8,5 +8,5 @@ class ConversationProcessor:
         self.context = context
         self.history = history
 
-    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def process(self, query: str, files: Optional[List[Dict[str, str]]], supports_interleaved_files: bool) -> Dict[str, Any]:
         raise NotImplementedError

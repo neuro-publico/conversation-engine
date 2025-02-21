@@ -15,3 +15,7 @@ class AIProviderInterface(ABC):
         Retorna el modelo de lenguaje configurado
         """
         pass
+
+    @abstractmethod
+    def supports_interleaved_files(self) -> bool:
+        pass
