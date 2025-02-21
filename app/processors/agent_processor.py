@@ -11,7 +11,8 @@ class AgentProcessor(ConversationProcessor):
         super().__init__(llm, context, history)
         self.tools = tools
 
-    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None,
+                      supports_interleaved_files: bool = False) -> Dict[str, Any]:
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", "{context}"),
             MessagesPlaceholder(variable_name="chat_history"),

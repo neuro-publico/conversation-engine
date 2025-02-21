@@ -1,7 +1,8 @@
 from app.configurations.config import (
     AGENT_IMAGE_VARIATIONS,
     STABILITY_API_KEY,
-    STABILITY_API_URL
+    STABILITY_API_URL,
+    GOOGLE_VISION_API_KEY
 )
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.requests.message_request import MessageRequest
@@ -17,6 +18,7 @@ import aiohttp
 import base64
 import uuid
 from dotenv import load_dotenv
+from app.externals.google_vision.google_vision_client import analyze_image
 
 load_dotenv()
 
@@ -74,9 +76,10 @@ class ImageService(ImageServiceInterface):
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
         original_image_response = await self._upload_to_s3(request.file, owner_id, folder_id, "original")
-
+        vision_analysis = await analyze_image(request.file)
+        
         message_request = MessageRequest(
-            query="Attached is the product image.",
+            query=f"Attached is the product image. {vision_analysis.get_analysis_text()}",
             agent_id=AGENT_IMAGE_VARIATIONS,
             conversation_id="",
             files=[{
@@ -96,4 +99,4 @@ class ImageService(ImageServiceInterface):
         generated_urls = await asyncio.gather(*tasks)
 
         return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
-                                     generated_prompt=prompt)
+                                     generated_prompt=prompt, vision_analysis=vision_analysis)

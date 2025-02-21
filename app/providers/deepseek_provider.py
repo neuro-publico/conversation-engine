@@ -14,5 +14,8 @@ class DeepseekProvider(AIProviderInterface):
         return Ollama(
             model=model,
             base_url=DEEP_SEEK_HOST
-            **model_kwargs
+                     ** model_kwargs
         )
+
+    def supports_interleaved_files(self) -> bool:
+        return False

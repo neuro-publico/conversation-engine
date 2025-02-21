@@ -31,4 +31,4 @@ class ConversationManager(ConversationManagerInterface):
             else SimpleProcessor(llm, agent_config.prompt, history)
         )
 
-        return await processor.process(request.query, request.files)
+        return await processor.process(request.query, request.files, ai_provider.supports_interleaved_files())
