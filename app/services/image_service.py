@@ -1,8 +1,5 @@
 from app.configurations.config import (
     AGENT_IMAGE_VARIATIONS,
-    STABILITY_API_KEY,
-    STABILITY_API_URL,
-    GOOGLE_VISION_API_KEY
 )
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.requests.message_request import MessageRequest
@@ -14,11 +11,11 @@ from app.services.message_service_interface import MessageServiceInterface
 from app.externals.s3_upload.s3_upload_client import upload_file
 from fastapi import Depends
 import asyncio
-import aiohttp
 import base64
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
+from app.externals.replicate.replicate_client import generate_image_variation
 
 load_dotenv()
 
@@ -26,8 +23,6 @@ load_dotenv()
 class ImageService(ImageServiceInterface):
     def __init__(self, message_service: MessageServiceInterface = Depends()):
         self.message_service = message_service
-        self.stability_api_key = STABILITY_API_KEY
-        self.stability_api_url = STABILITY_API_URL
 
     async def _upload_to_s3(self, image_base64: str, owner_id: str, folder_id: str,
                             prefix_name: str) -> S3UploadResponse:
@@ -42,42 +37,23 @@ class ImageService(ImageServiceInterface):
             )
         )
 
-    async def _generate_single_variation(self, image_base64: str, prompt: str, negative_prompt: str, owner_id: str,
+    async def _generate_single_variation(self, url_image: str, prompt: str, owner_id: str,
                                          folder_id: str) -> str:
-        image_bytes = base64.b64decode(image_base64)
-        form_data = aiohttp.FormData()
-        form_data.add_field('image',
-                            image_bytes,
-                            filename='image.jpg',
-                            content_type='image/jpeg')
-        form_data.add_field('prompt', prompt)
-        form_data.add_field('negative_prompt', negative_prompt)
-        form_data.add_field('fidelity', '1.0')
-        form_data.add_field('control_strength', '1.0')
-        form_data.add_field('output_format', 'webp')
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    self.stability_api_url,
-                    headers={
-                        "Authorization": f"Bearer {self.stability_api_key}",
-                        "accept": "image/*"
-                    },
-                    data=form_data
-            ) as response:
-                if response.status == 200:
-                    content = await response.read()
-                    content_base64 = base64.b64encode(content).decode('utf-8')
-                    response = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-                    return response.s3_url
-                else:
-                    raise Exception(f"Error {response.status}: {await response.text()}")
+        image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
+        content_base64 = base64.b64encode(image_content).decode('utf-8')
+        final_upload = await self._upload_to_s3(
+            content_base64,
+            owner_id,
+            folder_id,
+            "variation"
+        )
+        return final_upload.s3_url
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
         original_image_response = await self._upload_to_s3(request.file, owner_id, folder_id, "original")
         vision_analysis = await analyze_image(request.file)
-        
+
         message_request = MessageRequest(
             query=f"Attached is the product image. {vision_analysis.get_analysis_text()}",
             agent_id=AGENT_IMAGE_VARIATIONS,
@@ -90,10 +66,9 @@ class ImageService(ImageServiceInterface):
         )
 
         response = await self.message_service.handle_message(message_request)
-        prompt = response["text"]
-        negative_prompt = "text, letters, brand logos, brand names, symbols"
+        prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
-            self._generate_single_variation(request.file, prompt, negative_prompt, owner_id, folder_id)
+            self._generate_single_variation(original_image_response.s3_url, prompt, owner_id, folder_id)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
