@@ -20,8 +20,7 @@ AGENT_IMAGE_VARIATIONS = "agent_image_variations"
 
 AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
 
-STABILITY_API_KEY: str = os.getenv('STABILITY_API_KEY')
-STABILITY_API_URL: str = os.getenv('STABILITY_API_URL')
 GOOGLE_VISION_API_KEY: str = os.getenv('GOOGLE_VISION_API_KEY')
+REPLICATE_API_KEY: str = os.getenv('REPLICATE_API_KEY')
 
 API_KEY: str = os.getenv('API_KEY')
