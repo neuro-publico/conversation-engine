@@ -43,8 +43,8 @@ class AgentProcessor(ConversationProcessor):
                 "agent_scratchpad": ""
             })
             
-            if "message" not in result and "output" in result:
-                result["message"] = result["output"]
+            if "text" not in result and "output" in result:
+                result["text"] = result["output"]
                 
             return result
         except Exception as e:
