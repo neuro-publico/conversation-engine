@@ -42,6 +42,10 @@ class AgentProcessor(ConversationProcessor):
                 "input": query,
                 "agent_scratchpad": ""
             })
+            
+            if "text" not in result and "output" in result:
+                result["text"] = result["output"]
+                
             return result
         except Exception as e:
             print(f"Error durante la ejecución del agente: {str(e)}")
