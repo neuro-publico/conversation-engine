@@ -17,10 +17,12 @@ RAPIDAPI_HOST = os.getenv('RAPIDAPI_HOST')
 S3_UPLOAD_API = os.getenv('S3_UPLOAD_API')
 
 AGENT_IMAGE_VARIATIONS = "agent_image_variations"
+SCRAPER_AGENT = "scraper_agent"
 
 AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
 
 GOOGLE_VISION_API_KEY: str = os.getenv('GOOGLE_VISION_API_KEY')
 REPLICATE_API_KEY: str = os.getenv('REPLICATE_API_KEY')
+SCRAPERAPI_KEY: str = os.getenv('SCRAPERAPI_KEY')
 
 API_KEY: str = os.getenv('API_KEY')

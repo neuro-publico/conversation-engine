@@ -7,6 +7,8 @@ from app.services.image_service import ImageService
 from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service import MessageService
 from app.services.message_service_interface import MessageServiceInterface
+from app.services.product_scraping_service import ProductScrapingService
+from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
 
 app = FastAPI(
     title="Conversational Agent API",
@@ -17,6 +19,7 @@ app.include_router(router)
 app.dependency_overrides[MessageServiceInterface] = MessageService
 app.dependency_overrides[ConversationManagerInterface] = ConversationManager
 app.dependency_overrides[ImageServiceInterface] = ImageService
+app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingService
 
 if __name__ == "__main__":
     import uvicorn
