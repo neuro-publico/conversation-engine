@@ -34,13 +34,9 @@ class IAScraper(ScraperInterface):
         data['data']['external_sell_price'] = parse_price(data['data']['external_sell_price'])
         
         if 'variants' in data['data']:
-            filtered_variants = []
-            for variant in data['data']['variants']:
-                if not (variant.get('name') == 'unknown' and 
-                        variant.get('variant_key') == 'unknown' and 
-                        len(variant.get('images', [])) == 0):
-                    filtered_variants.append(variant)
-            
-            data['data']['variants'] = filtered_variants
+            data['data']['variants'] = [
+                variant for variant in data['data']['variants'] 
+                if variant.get('variant_key') != 'unknown'
+            ]
 
         return data
