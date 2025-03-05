@@ -24,5 +24,6 @@ AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
 GOOGLE_VISION_API_KEY: str = os.getenv('GOOGLE_VISION_API_KEY')
 REPLICATE_API_KEY: str = os.getenv('REPLICATE_API_KEY')
 SCRAPERAPI_KEY: str = os.getenv('SCRAPERAPI_KEY')
+URL_SCRAPER_LAMBDA: str = os.getenv('URL_SCRAPER_LAMBDA')
 
 API_KEY: str = os.getenv('API_KEY')
