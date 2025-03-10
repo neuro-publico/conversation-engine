@@ -31,7 +31,7 @@ async def search_products(data: AliexpressSearchRequest) -> AliexpressSearchResp
 
 
 async def get_item_detail(item_id: str):
-    endpoint = '/item_detail_7'
+    endpoint = '/item_detail_6'
     url = f"{RAPIDAPI_HOST}{endpoint}"
 
     headers = {
