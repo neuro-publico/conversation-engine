@@ -1,3 +1,4 @@
+from app.requests.copy_request import CopyRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from fastapi import APIRouter, Depends, Request
@@ -51,6 +52,15 @@ async def generate_variation_images(
 ):
     user_info = request.state.user_info
     response = await service.generate_variation_images(variation_request, user_info.get("data", {}).get("_id"))
+    return response
+
+
+@router.post("/generate-copies")
+async def generate_copies(
+        copy_request: CopyRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.generate_copies(copy_request)
     return response
 
 
