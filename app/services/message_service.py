@@ -3,10 +3,12 @@ import uuid
 import asyncio
 
 from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID
+from app.configurations.copies_config import AGENT_COPIES
 from app.externals.agent_config.agent_config_client import get_agent
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
 from app.pdf.helpers import clean_text, clean_json
+from app.requests.copy_request import CopyRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.message_request import MessageRequest
 from app.externals.agent_config.requests.agent_config_request import AgentConfigRequest
@@ -81,6 +83,16 @@ class MessageService(MessageServiceInterface):
 
         except Exception as e:
             raise ValueError(f"Error procesando respuestas de agentes: {str(e)}")
+
+    async def generate_copies(self, request: CopyRequest):
+        agent_queries = [
+            {'agent': agent, 'query': request.prompt}
+            for agent in AGENT_COPIES
+        ]
+
+        combined_data = await self.process_multiple_agents(agent_queries)
+
+        return {"copies": combined_data}
 
     async def generate_pdf(self, request: GeneratePdfRequest):
         base_query = f"Product Name: {request.product_name} Description: {request.product_description}"
