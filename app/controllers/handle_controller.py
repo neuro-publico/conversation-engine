@@ -51,7 +51,7 @@ async def generate_variation_images(
         service: ImageServiceInterface = Depends()
 ):
     user_info = request.state.user_info
-    response = await service.generate_variation_images(variation_request, user_info.get("data", {}).get("_id"))
+    response = await service.generate_variation_images(variation_request, user_info.get("data", {}).get("id"))
     return response
 
 
