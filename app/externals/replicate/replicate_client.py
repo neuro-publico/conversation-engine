@@ -1,5 +1,11 @@
+import base64
+
 import aiohttp
 import asyncio
+import httpx
+import base64
+
+
 from app.configurations.config import REPLICATE_API_KEY
 
 
@@ -55,3 +61,51 @@ async def generate_image_variation(
                         await asyncio.sleep(1)
             else:
                 raise Exception(f"Error {response.status}: {await response.text()}")
+
+
+
+
+async def google_image(file: str, prompt: str) -> bytes:
+    API_KEY = "AIzaSyByxC4IH1klvxH4Rgb_q9z-bG7cVBJSb4Y"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={API_KEY}"
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt},
+                    {"inlineData": {
+                        "mimeType": "image/png",
+                        "data": file
+                    }}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseModalities": ["Text", "Image"]
+        }
+    }
+
+    headers = {'Content-Type': 'application/json'}
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    parts = data["candidates"][0]["content"]["parts"]
+
+                    for part in parts:
+                        if "inlineData" in part:
+                            img_data_base64 = part["inlineData"]["data"]
+                            img_bytes = base64.b64decode(img_data_base64)
+                            return img_bytes
+                    return None
+                else:
+                    error_text = await response.text()
+                    print(f"Error {response.status}: {error_text}")
+                    response.raise_for_status()
+    except Exception as e:
+        print(f"Error al generar imagen: {str(e)}")
+        raise Exception(f"Error al generar imagen: {str(e)}")
+

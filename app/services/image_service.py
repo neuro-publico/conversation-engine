@@ -15,7 +15,7 @@ import base64
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.replicate.replicate_client import generate_image_variation
+from app.externals.replicate.replicate_client import generate_image_variation, google_image
 
 load_dotenv()
 
@@ -38,8 +38,8 @@ class ImageService(ImageServiceInterface):
         )
 
     async def _generate_single_variation(self, url_image: str, prompt: str, owner_id: str,
-                                         folder_id: str) -> str:
-        image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
+                                         folder_id: str, file: str) -> str:
+        image_content = await google_image(file=file, prompt=prompt)
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
             content_base64,
@@ -68,7 +68,7 @@ class ImageService(ImageServiceInterface):
         response = await self.message_service.handle_message(message_request)
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
-            self._generate_single_variation(original_image_response.s3_url, prompt, owner_id, folder_id)
+            self._generate_single_variation(original_image_response.s3_url, prompt, owner_id, folder_id, request.file)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
