@@ -5,8 +5,7 @@ import asyncio
 import httpx
 import base64
 
-
-from app.configurations.config import REPLICATE_API_KEY
+from app.configurations.config import REPLICATE_API_KEY, GOOGLE_GEMINI_API_KEY
 
 
 async def generate_image_variation(
@@ -63,11 +62,8 @@ async def generate_image_variation(
                 raise Exception(f"Error {response.status}: {await response.text()}")
 
 
-
-
 async def google_image(file: str, prompt: str) -> bytes:
-    API_KEY = "AIzaSyByxC4IH1klvxH4Rgb_q9z-bG7cVBJSb4Y"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GOOGLE_GEMINI_API_KEY}"
 
     payload = {
         "contents": [
@@ -87,7 +83,7 @@ async def google_image(file: str, prompt: str) -> bytes:
     }
 
     headers = {'Content-Type': 'application/json'}
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload) as response:
@@ -108,4 +104,3 @@ async def google_image(file: str, prompt: str) -> bytes:
     except Exception as e:
         print(f"Error al generar imagen: {str(e)}")
         raise Exception(f"Error al generar imagen: {str(e)}")
-
