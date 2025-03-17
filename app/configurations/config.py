@@ -27,3 +27,4 @@ SCRAPERAPI_KEY: str = os.getenv('SCRAPERAPI_KEY')
 URL_SCRAPER_LAMBDA: str = os.getenv('URL_SCRAPER_LAMBDA')
 
 API_KEY: str = os.getenv('API_KEY')
+GOOGLE_GEMINI_API_KEY: str = os.getenv('GOOGLE_GEMINI_API_KEY')
