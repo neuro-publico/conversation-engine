@@ -14,4 +14,4 @@ PDF_MANUAL_SECTION_ORDER = [
     "troubleshooting",
     "faq",
     "conclusion"
-] 
+]

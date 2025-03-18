@@ -14,3 +14,6 @@ class OpenAIProvider(AIProviderInterface):
             model=model,
             **model_kwargs
         )
+
+    def supports_interleaved_files(self) -> bool:
+        return True

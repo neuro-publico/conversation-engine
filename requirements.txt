@@ -12,3 +12,5 @@ langchain-core>=0.1.17
 langchain-anthropic
 langchain-ollama
 fpdf
+beautifulsoup4
+lxml
