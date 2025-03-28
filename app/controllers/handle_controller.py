@@ -58,7 +58,7 @@ async def generate_variation_images(
 
 @router.post("/generate-images-from")
 @require_auth
-async def generate_images_from_image(
+async def generate_images_from(
         request: Request,
         generate_image_request: GenerateImageRequest,
         service: ImageServiceInterface = Depends()
