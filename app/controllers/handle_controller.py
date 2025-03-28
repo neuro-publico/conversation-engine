@@ -25,6 +25,15 @@ async def handle_message(
     response = await message_service.handle_message(request)
     return response
 
+@router.post("/handle-message-json")
+async def handle_message(
+        request: MessageRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.handle_message_json(request)
+    return response
+
+
 
 @router.post("/recommend-product")
 async def recommend_products(
