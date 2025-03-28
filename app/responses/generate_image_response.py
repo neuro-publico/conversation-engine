@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -6,7 +6,7 @@ from app.externals.google_vision.responses.vision_analysis_response import Visio
 
 
 class GenerateImageResponse(BaseModel):
-    original_url: str
+    original_url: Optional[str]
     generated_urls: List[str]
     generated_prompt: str
-    vision_analysis: VisionAnalysisResponse
+    vision_analysis: Optional[VisionAnalysisResponse] = None

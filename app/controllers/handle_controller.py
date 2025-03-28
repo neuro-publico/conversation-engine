@@ -1,4 +1,5 @@
 from app.requests.copy_request import CopyRequest
+from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from fastapi import APIRouter, Depends, Request
@@ -52,6 +53,18 @@ async def generate_variation_images(
 ):
     user_info = request.state.user_info
     response = await service.generate_variation_images(variation_request, user_info.get("data", {}).get("id"))
+    return response
+
+
+@router.post("/generate-images-from")
+@require_auth
+async def generate_images_from(
+        request: Request,
+        generate_image_request: GenerateImageRequest,
+        service: ImageServiceInterface = Depends()
+):
+    user_info = request.state.user_info
+    response = await service.generate_images_from(generate_image_request, user_info.get("data", {}).get("id"))
     return response
 
 

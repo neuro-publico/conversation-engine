@@ -1,4 +1,5 @@
 import base64
+from typing import Optional
 
 import aiohttp
 import asyncio
@@ -62,19 +63,23 @@ async def generate_image_variation(
                 raise Exception(f"Error {response.status}: {await response.text()}")
 
 
-async def google_image(file: str, prompt: str) -> bytes:
+async def google_image(prompt: str, file: Optional[str] = None) -> bytes:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GOOGLE_GEMINI_API_KEY}"
+
+    parts = [{"text": prompt}]
+
+    if file:
+        parts.append({
+            "inlineData": {
+                "mimeType": "image/png",
+                "data": file
+            }
+        })
 
     payload = {
         "contents": [
             {
-                "parts": [
-                    {"text": prompt},
-                    {"inlineData": {
-                        "mimeType": "image/png",
-                        "data": file
-                    }}
-                ]
+                "parts": parts
             }
         ],
         "generationConfig": {
