@@ -42,6 +42,11 @@ class MessageService(MessageServiceInterface):
             agent_config=agent_config
         )
 
+    async def handle_message_json(self, request: MessageRequest):
+        response = await self.handle_message(request)
+
+        return json.loads(response['text'])
+
     async def recommend_products(self, request: RecommendProductRequest):
         agent_id = AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID if request.similar else AGENT_RECOMMEND_PRODUCTS_ID
 

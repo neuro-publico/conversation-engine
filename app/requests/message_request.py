@@ -7,5 +7,6 @@ class MessageRequest(BaseModel):
     query: str
     conversation_id: str
     metadata_filter: Optional[dict] = None
+    json_parser: Optional[dict] = None
     parameter_prompt: Optional[dict] = None
     files: Optional[List[Dict[str, str]]] = None

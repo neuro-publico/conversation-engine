@@ -5,13 +5,15 @@ from app.processors.conversation_processor import ConversationProcessor
 from langchain_core.language_models import BaseChatModel
 import traceback
 
+from app.requests.message_request import MessageRequest
+
 
 class AgentProcessor(ConversationProcessor):
     def __init__(self, llm: BaseChatModel, context: str, history: List[str], tools: List[Any]):
         super().__init__(llm, context, history)
         self.tools = tools
 
-    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None,
+    async def process(self, request: MessageRequest, files: Optional[List[Dict[str, str]]] = None,
                       supports_interleaved_files: bool = False) -> Dict[str, Any]:
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", "{context}"),
@@ -39,7 +41,7 @@ class AgentProcessor(ConversationProcessor):
             result = await agent_executor.ainvoke({
                 "context": self.context or "",
                 "chat_history": self.history,
-                "input": query,
+                "input": request.query,
                 "agent_scratchpad": ""
             })
             
