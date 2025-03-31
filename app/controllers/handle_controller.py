@@ -1,8 +1,12 @@
+import base64
+
+import httpx
+
 from app.requests.copy_request import CopyRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from app.requests.message_request import MessageRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.requests.product_scraping_request import ProductScrapingRequest
@@ -25,6 +29,7 @@ async def handle_message(
     response = await message_service.handle_message(request)
     return response
 
+
 @router.post("/handle-message-json")
 async def handle_message(
         request: MessageRequest,
@@ -32,7 +37,6 @@ async def handle_message(
 ):
     response = await message_service.handle_message_json(request)
     return response
-
 
 
 @router.post("/recommend-product")
@@ -72,6 +76,15 @@ async def generate_images_from(
         generate_image_request: GenerateImageRequest,
         service: ImageServiceInterface = Depends()
 ):
+    if not generate_image_request.file and generate_image_request.file_url:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(generate_image_request.file_url)
+                response.raise_for_status()
+                generate_image_request.file = base64.b64encode(response.content).decode()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error for get file: {str(e)}")
+
     user_info = request.state.user_info
     response = await service.generate_images_from(generate_image_request, user_info.get("data", {}).get("id"))
     return response
