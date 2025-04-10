@@ -41,8 +41,12 @@ class ImageService(ImageServiceInterface):
 
     async def _generate_single_variation(self, url_image: str, prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None) -> str:
-        image_content = await google_image(prompt=prompt, file=file)
-        
+
+        try:
+            image_content = await google_image(prompt=prompt, file=file)
+        except Exception as e:
+            image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
+
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
             content_base64,
