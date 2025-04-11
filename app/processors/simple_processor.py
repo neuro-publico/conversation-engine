@@ -1,45 +1,79 @@
-from typing import Dict, Any, Optional, List, Union
-from langchain.chains import LLMChain
+import json
+from typing import Dict, Any, Optional, List
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 from app.processors.conversation_processor import ConversationProcessor
+from app.requests.message_request import MessageRequest
+import re
 
 
 class SimpleProcessor(ConversationProcessor):
-    async def process(self, query: str, files: Optional[List[Dict[str, str]]] = None, supports_interleaved_files: bool = False) -> Dict[str, Any]:
+    async def generate_response(self, context: str, chat_history: list, query: str, prompt: ChatPromptTemplate) -> Dict[
+        str, Any]:
+        chain = (
+                {
+                    "context": lambda x: x["context"],
+                    "chat_history": lambda x: x["chat_history"],
+                    "input": lambda x: x["input"],
+                }
+                | prompt
+                | self.llm
+        )
+
+        raw_response = await chain.ainvoke({
+            "context": context,
+            "chat_history": chat_history,
+            "input": query
+        })
+
+        content = raw_response.content
+
+        match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
+        if match:
+            json_content = match.group(1)
+            response_content = json_content
+        else:
+            response_content = content
+
+        return {
+            "context": context,
+            "chat_history": chat_history,
+            "input": query,
+            "text": response_content
+        }
+
+    async def process(self, request: MessageRequest, files: Optional[List[Dict[str, str]]] = None,
+                      supports_interleaved_files: bool = False) -> Dict[str, Any]:
         messages = []
         system_message = self.context or ""
 
         if files and not supports_interleaved_files:
             file_references = []
             for file in files:
-                if file.get('type') == 'image':
-                    file_references.append(f"<image>{file['url']}</image>")
-                else:
-                    file_references.append(f"<file url='{file['url']}'></file>")
+                tag = 'image' if file.get('type') == 'image' else 'file'
+                file_references.append(f"<{tag} url='{file['url']}'></{tag}>")
 
             system_message += "\n\n" + "\n".join(file_references)
 
-        messages.append(("system", system_message))
-        messages.append(MessagesPlaceholder(variable_name="chat_history"))
+        if request.json_parser:
+            format_instructions = json.dumps(request.json_parser, indent=2)
+            system_message += (
+                "\n\nIMPORTANT: Respond exclusively in JSON format following exactly this structure:\n\n"
+                f"{format_instructions}\n\n"
+                "Do NOT include markdown, explanations, or anything else besides the JSON."
+            )
 
         if files and supports_interleaved_files:
+            interleaved_references = []
             for file in files:
-                if file.get('type') == 'image':
-                    messages.append(("system", f"<image>{file['url']}</image>"))
-                else:
-                    messages.append(("system", f"<file url='{file['url']}'></file>"))
+                tag = 'image' if file.get('type') == 'image' else 'file'
+                interleaved_references.append(f"<{tag} url='{file['url']}'></{tag}>")
+            system_message += "\n\n" + "\n".join(interleaved_references)
 
-        messages.append(("human", query))
+        messages.append(SystemMessage(content=system_message))
+        messages.append(MessagesPlaceholder(variable_name="chat_history"))
+        messages.append(HumanMessage(content=request.query))
+
         prompt = ChatPromptTemplate.from_messages(messages)
-
-        chain = LLMChain(
-            llm=self.llm,
-            prompt=prompt,
-            verbose=False
-        )
-
-        return await chain.ainvoke({
-            "context": self.context or "",
-            "chat_history": self.history,
-            "input": query
-        })
+        return await self.generate_response(self.context, self.history, request.query, prompt)

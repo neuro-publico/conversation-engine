@@ -10,7 +10,7 @@ from app.tools.tool_generator import ToolGenerator
 
 class ConversationManager(ConversationManagerInterface):
     # TODO HISTORY
-    def get_conversation_history(self, conversation_id: str) -> List[str]:
+    def get_conversation_history(self, conversation_id: str) -> List:
         return []
 
     async def process_conversation(self, request: MessageRequest, agent_config: AgentConfigResponse) -> dict[str, Any]:
@@ -31,4 +31,4 @@ class ConversationManager(ConversationManagerInterface):
             else SimpleProcessor(llm, agent_config.prompt, history)
         )
 
-        return await processor.process(request.query, request.files, ai_provider.supports_interleaved_files())
+        return await processor.process(request, request.files, ai_provider.supports_interleaved_files())

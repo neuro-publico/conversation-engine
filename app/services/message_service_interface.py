@@ -11,6 +11,10 @@ class MessageServiceInterface(ABC):
         pass
 
     @abstractmethod
+    async def handle_message_json(self, request: MessageRequest):
+        pass
+
+    @abstractmethod
     async def generate_copies(self, request: CopyRequest):
         pass
 
