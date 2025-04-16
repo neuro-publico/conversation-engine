@@ -6,6 +6,7 @@ from app.requests.message_request import MessageRequest
 from app.externals.agent_config.responses.agent_config_response import AgentConfigResponse
 from app.factories.ai_provider_factory import AIProviderFactory
 from app.tools.tool_generator import ToolGenerator
+from app.processors.mcp_processor import MCPProcessor
 
 
 class ConversationManager(ConversationManagerInterface):
@@ -23,12 +24,15 @@ class ConversationManager(ConversationManagerInterface):
         )
 
         history = self.get_conversation_history(request.conversation_id) or []
-        tools = ToolGenerator.generate_tools(agent_config.tools)
 
-        processor = (
-            AgentProcessor(llm, agent_config.prompt, history, tools)
-            if tools
-            else SimpleProcessor(llm, agent_config.prompt, history)
-        )
+        if agent_config.mcp_config:
+            processor = MCPProcessor(llm, agent_config.prompt, history, agent_config.mcp_config)
+        else:
+            tools = ToolGenerator.generate_tools(agent_config.tools or [])
+            processor = (
+                AgentProcessor(llm, agent_config.prompt, history, tools)
+                if tools
+                else SimpleProcessor(llm, agent_config.prompt, history)
+            )
 
         return await processor.process(request, request.files, ai_provider.supports_interleaved_files())

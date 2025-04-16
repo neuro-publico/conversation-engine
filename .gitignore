@@ -34,6 +34,7 @@ logs/
 
 # Environment variables file
 .env
+.venv
 
 # Pinecone-related cache
 pinecone.cache

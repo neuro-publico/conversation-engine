@@ -1,5 +1,4 @@
 import base64
-
 import httpx
 
 from app.requests.copy_request import CopyRequest
@@ -14,12 +13,12 @@ from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
 from app.middlewares.auth_middleware import require_auth, require_api_key
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/api/ms/conversational-engine",
     tags=["conversational-agent"]
 )
-
 
 @router.post("/handle-message")
 async def handle_message(
