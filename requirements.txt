@@ -15,4 +15,4 @@ fpdf
 beautifulsoup4
 lxml
 langchain_mcp
-langchain-mcp-adapters>=0.1.0
+langchain-mcp-adapters==0.0.9
