@@ -100,7 +100,7 @@ class MessageService(MessageServiceInterface):
         return {"copies": combined_data}
 
     async def generate_pdf(self, request: GeneratePdfRequest):
-        base_query = f"Product Name: {request.product_name} Description: {request.product_description}"
+        base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}."
 
         agent_queries = [
             {'agent': "agent_copies_pdf", 'query': f"section: {section}. {base_query} "}
