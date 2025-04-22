@@ -6,6 +6,7 @@ class PDFGenerator(FPDF):
         super().__init__()
         self.product_name = product_name
         self.header_height = 0
+        self.version = "1.0"  # Versión del documento
 
     def header(self):
         if self.page_no() == 1:
@@ -82,7 +83,21 @@ class PDFGenerator(FPDF):
             self.set_x(margin + 10)  # Asegurar margen correcto
             self.multi_cell(text_width, 12, subtitle, align="C")
         
+        # Agregar información de la versión en la parte inferior, dentro del marco
+        self.set_font("Helvetica", "I", 11)
+        self.set_text_color(100, 100, 100)
+        
+        # Posicionar el texto de versión en la parte inferior pero dentro del marco
+        version_y = page_height - margin - 20  # 20 puntos arriba del borde inferior
+        self.set_y(version_y)
+        self.set_x(margin + 10)
+        self.multi_cell(text_width, 10, f"Document Version: {self.version}", align="C")
+        
         self.add_page()
+    
+    # Método para establecer la versión del documento
+    def set_document_version(self, version):
+        self.version = version
     
     def get_multi_cell_height(self, w, h, txt, align="J"):
         x = self.x
