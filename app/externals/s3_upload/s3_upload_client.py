@@ -8,10 +8,9 @@ async def upload_file(request: S3UploadRequest) -> S3UploadResponse:
     headers = {
         "Content-Type": "application/json"
     }
-    
-    # Configuración de tiempos de espera más largos (3 minutos)
+
     timeout = httpx.Timeout(timeout=180.0, connect=60.0)
-    
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
@@ -24,3 +23,14 @@ async def upload_file(request: S3UploadRequest) -> S3UploadResponse:
     except Exception as e:
         print(f"Error al cargar archivo a S3: {str(e)}")
         raise Exception(f"Error al cargar archivo a S3: {str(e)}")
+
+
+async def check_file_exists_direct(s3_url: str) -> bool:
+    timeout = httpx.Timeout(timeout=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.head(s3_url)
+            return response.status_code == 200
+    except Exception as e:
+        return False
