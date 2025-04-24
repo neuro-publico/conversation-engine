@@ -11,7 +11,7 @@ async def get_agent(data: AgentConfigRequest) -> AgentConfigResponse:
     headers = {'Content-Type': 'application/json'}
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=data.dict(), headers=headers)
+        response = await client.post(url, json=data.model_dump(), headers=headers)
         response.raise_for_status()
 
         return AgentConfigResponse(**response.json())

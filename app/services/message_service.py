@@ -1,12 +1,11 @@
 import json
-import uuid
 import asyncio
 
-from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID
+from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID, ENVIRONMENT
 from app.configurations.copies_config import AGENT_COPIES
 from app.externals.agent_config.agent_config_client import get_agent
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
-from app.externals.s3_upload.s3_upload_client import upload_file
+from app.externals.s3_upload.s3_upload_client import upload_file, check_file_exists_direct
 from app.pdf.helpers import clean_text, clean_json
 from app.requests.copy_request import CopyRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
@@ -100,7 +99,16 @@ class MessageService(MessageServiceInterface):
         return {"copies": combined_data}
 
     async def generate_pdf(self, request: GeneratePdfRequest):
-        base_query = f"Product Name: {request.product_name} Description: {request.product_description}"
+        base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}."
+        base_filename = f"{request.product_id}_{request.language}"
+        version = "v1"
+        base_url = f"https://fluxi.co/{ENVIRONMENT}/assets"
+        folder_path = f"{request.owner_id}/pdfs/{version}"
+        s3_url = f"{base_url}/{folder_path}/{base_filename}.pdf"
+        exists = await check_file_exists_direct(s3_url)
+
+        if exists:
+            return {"s3_url": s3_url}
 
         agent_queries = [
             {'agent': "agent_copies_pdf", 'query': f"section: {section}. {base_query} "}
@@ -109,12 +117,15 @@ class MessageService(MessageServiceInterface):
 
         combined_data = await self.process_multiple_agents(agent_queries)
 
-        unique_id = uuid.uuid4().hex[:8]
-        file_name = f"{request.product_name.replace(' ', '_').lower()}_{unique_id}"
-
         pdf_generator = PDFManualGenerator(request.product_name)
         pdf = await pdf_generator.create_manual(combined_data)
 
-        return await upload_file(
-            S3UploadRequest(file=pdf, folder=f"{request.owner_id}/pdfs",
-                            filename=file_name))
+        result = await upload_file(
+            S3UploadRequest(
+                file=pdf,
+                folder=folder_path,
+                filename=base_filename
+            )
+        )
+
+        return result
