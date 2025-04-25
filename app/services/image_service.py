@@ -16,7 +16,7 @@ import base64
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.replicate.replicate_client import generate_image_variation, google_image
+from app.externals.images.image_client import generate_image_variation, google_image, openai_image_edit
 from typing import Optional
 
 load_dotenv()
@@ -43,9 +43,13 @@ class ImageService(ImageServiceInterface):
                                          folder_id: str, file: Optional[str] = None) -> str:
 
         try:
-            image_content = await google_image(prompt=prompt, file=file)
+            image_content = await openai_image_edit(image_url=url_image, prompt=prompt)
         except Exception as e:
-            image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
+            try:
+                image_content = await google_image(prompt=prompt, file=file)
+            except Exception as e:
+                image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
+
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
