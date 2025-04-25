@@ -1,12 +1,14 @@
 import base64
 from typing import Optional
+import os
 
 import aiohttp
 import asyncio
 import httpx
 import base64
 
-from app.configurations.config import REPLICATE_API_KEY, GOOGLE_GEMINI_API_KEY
+from app.configurations import config
+from app.configurations.config import REPLICATE_API_KEY, GOOGLE_GEMINI_API_KEY, OPENAI_API_KEY
 
 
 async def generate_image_variation(
@@ -109,3 +111,45 @@ async def google_image(prompt: str, file: Optional[str] = None) -> bytes:
     except Exception as e:
         print(f"Error al generar imagen: {str(e)}")
         raise Exception(f"Error al generar imagen: {str(e)}")
+
+
+async def openai_image_edit(image_url: str, prompt: str) -> bytes:
+    url = "https://api.openai.com/v1/images/edits"
+    headers = {
+        "Authorization": f"Bearer {config.OPENAI_API_KEY}"
+    }
+    data = aiohttp.FormData()
+    print("VAMOOOOSSS")
+
+    with open(image_url, 'rb') as f:
+        data.add_field('image',
+                       f.read(),
+                       filename=os.path.basename(image_url),
+                       content_type='application/octet-stream')
+
+    data.add_field('prompt', prompt)
+    data.add_field('model', 'gpt-image-1')
+    data.add_field('n', '1')
+    data.add_field('size', '1024x1024')
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if "data" in result and len(result["data"]) > 0 and "b64_json" in result["data"][0]:
+                        b64_image = result["data"][0]["b64_json"]
+                        image_bytes = base64.b64decode(b64_image)
+                        return image_bytes
+                    else:
+                        raise Exception(f"Respuesta inesperada de la API de OpenAI: {result}")
+                else:
+                    error_text = await response.text()
+                    print(f"Error {response.status}: {error_text}")
+                    response.raise_for_status()
+    except aiohttp.ClientError as e:
+        print(f"Error red al generar imagen: {str(e)}")
+        raise Exception(f"Error de red al llamar a OpenAI: {e}") from e
+    except Exception as e:
+        print(f"Error al generar imagen: {str(e)}")
+        raise Exception(f"Error al editar imagen con OpenAI: {e}") from e

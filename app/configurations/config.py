@@ -30,3 +30,5 @@ API_KEY: str = os.getenv('API_KEY')
 GOOGLE_GEMINI_API_KEY: str = os.getenv('GOOGLE_GEMINI_API_KEY')
 
 ENVIRONMENT: str = os.getenv('ENVIRONMENT')
+
+OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY')
