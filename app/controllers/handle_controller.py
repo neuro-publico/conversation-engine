@@ -108,6 +108,25 @@ async def generate_images_from_api_key(
     return response
 
 
+@router.post("/generate-images-from-agent/api-key")
+@require_api_key
+async def generate_images_from_agent_api_key(
+        request: Request,
+        generate_image_request: GenerateImageRequest,
+        service: ImageServiceInterface = Depends()
+):
+    if not generate_image_request.file and generate_image_request.file_url:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(generate_image_request.file_url)
+                response.raise_for_status()
+                generate_image_request.file = base64.b64encode(response.content).decode()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error for get file: {str(e)}")
+    response = await service.generate_images_from_agent(generate_image_request, generate_image_request.owner_id)
+    return response
+
+
 @router.post("/generate-copies")
 async def generate_copies(
         copy_request: CopyRequest,

@@ -1,6 +1,8 @@
 from app.configurations.config import (
     AGENT_IMAGE_VARIATIONS,
 )
+from app.externals.agent_config.agent_config_client import get_agent
+from app.externals.agent_config.requests.agent_config_request import AgentConfigRequest
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.message_request import MessageRequest
@@ -90,16 +92,16 @@ class ImageService(ImageServiceInterface):
     async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
         original_url = None
-        
+
         if request.file:
             original_image_response = await self._upload_to_s3(request.file, owner_id, folder_id, "original")
             original_url = original_image_response.s3_url
-        
+
         tasks = [
             self._generate_single_variation(
-                original_url, 
-                request.prompt, 
-                owner_id, 
+                original_url,
+                request.prompt,
+                owner_id,
                 folder_id,
                 request.file
             )
@@ -108,7 +110,20 @@ class ImageService(ImageServiceInterface):
         generated_urls = await asyncio.gather(*tasks)
 
         return GenerateImageResponse(
-            generated_urls=generated_urls, 
+            generated_urls=generated_urls,
             original_url=original_url,
             generated_prompt=request.prompt
         )
+
+    async def generate_images_from_agent(self, request: GenerateImageRequest, owner_id: str):
+        data = AgentConfigRequest(
+            agent_id=request.agent_id,
+            query="",
+            parameter_prompt=request.parameter_prompt
+        )
+
+        agent_config = await get_agent(data)
+        request.prompt = agent_config.prompt
+        response = await self.generate_images_from(request, owner_id)
+
+        return response

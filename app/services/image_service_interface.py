@@ -12,3 +12,6 @@ class ImageServiceInterface(ABC):
     @abstractmethod
     async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
         pass
+
+    async def generate_images_from_agent(self, generate_image_request, owner_id):
+        pass
