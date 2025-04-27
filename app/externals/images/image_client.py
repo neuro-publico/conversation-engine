@@ -119,7 +119,6 @@ async def openai_image_edit(image_url: str, prompt: str) -> bytes:
         "Authorization": f"Bearer {config.OPENAI_API_KEY}"
     }
     data = aiohttp.FormData()
-    print("VAMOOOOSSS")
 
     with open(image_url, 'rb') as f:
         data.add_field('image',
