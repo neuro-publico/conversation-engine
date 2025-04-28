@@ -180,5 +180,5 @@ class MessageService(MessageServiceInterface):
         return {
             "pain_detection": pain_detection_message,
             "buyer_detection": buyer_detection_message,
-            "sales_angles": sales_angles_response
+            "sales_angles": sales_angles_response["angles"]
         }
