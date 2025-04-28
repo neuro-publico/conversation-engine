@@ -5,6 +5,7 @@ from app.requests.copy_request import CopyRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
+from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from fastapi import APIRouter, Depends, Request, HTTPException
 from app.requests.message_request import MessageRequest
 from app.requests.variation_image_request import VariationImageRequest
@@ -144,6 +145,15 @@ async def scrape_product(
         service: ProductScrapingServiceInterface = Depends()
 ):
     response = await service.scrape_product(scraping_request)
+    return response
+
+
+@router.post("/resolve-info-funnel")
+async def resolve_funnel(
+        request: ResolveFunnelRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.resolve_funnel(request)
     return response
 
 

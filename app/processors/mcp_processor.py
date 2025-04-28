@@ -17,7 +17,7 @@ class MCPProcessor(ConversationProcessor):
                       supports_interleaved_files: bool = False) -> Dict[str, Any]:
         async with MultiServerMCPClient(self.mcp_config) as client:
             agent = create_react_agent(self.llm, client.get_tools())
-            
+
             system_message = self.context or ""
             if request.json_parser:
                 format_instructions = json.dumps(request.json_parser, indent=2)
@@ -26,18 +26,18 @@ class MCPProcessor(ConversationProcessor):
                     f"{format_instructions}\n\n"
                     "Do NOT include markdown, explanations, or anything else besides the JSON."
                 )
-            
+
             messages = []
             if system_message:
                 messages.append({"role": "system", "content": system_message})
-            
+
             if self.history:
                 messages.extend(self.history)
-            
+
             messages.append({"role": "user", "content": request.query})
-            
+
             response = await agent.ainvoke({"messages": messages})
-            
+
             content = ""
             if "messages" in response and response["messages"]:
                 last_message = response["messages"][-1]
@@ -49,13 +49,37 @@ class MCPProcessor(ConversationProcessor):
                     content = str(last_message)
             else:
                 content = str(response)
-            
+
             match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
             result = match.group(1) if match else content
-            
+
+            tool_info = await self.get_tool_data(response)
+
             return {
                 "context": self.context,
                 "chat_history": self.history,
                 "input": request.query,
-                "text": result
-            } 
+                "text": result,
+                "tool_result": tool_info
+            }
+
+    async def get_tool_data(self, response):
+        tool_messages = [
+            msg for msg in response.get('messages', [])
+            if getattr(msg, 'type', None) == 'tool'
+        ]
+        tool_info = None
+        if tool_messages:
+            last_tool = tool_messages[-1]
+            name = last_tool.name
+            tool_result = last_tool.content
+            try:
+                tool_result_json = json.loads(tool_result)
+            except json.JSONDecodeError:
+                tool_result_json = tool_result
+
+            tool_info = {
+                "name": name,
+                "message": tool_result_json
+            }
+        return tool_info
