@@ -1,4 +1,5 @@
 import base64
+import mimetypes
 from typing import Optional
 import os
 
@@ -6,6 +7,8 @@ import aiohttp
 import asyncio
 import httpx
 import base64
+
+import requests
 
 from app.configurations import config
 from app.configurations.config import REPLICATE_API_KEY, GOOGLE_GEMINI_API_KEY, OPENAI_API_KEY
@@ -113,18 +116,26 @@ async def google_image(prompt: str, file: Optional[str] = None) -> bytes:
         raise Exception(f"Error al generar imagen: {str(e)}")
 
 
-async def openai_image_edit(image_url: str, prompt: str) -> bytes:
+async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
     url = "https://api.openai.com/v1/images/edits"
     headers = {
         "Authorization": f"Bearer {config.OPENAI_API_KEY}"
     }
     data = aiohttp.FormData()
 
-    with open(image_url, 'rb') as f:
-        data.add_field('image',
-                       f.read(),
-                       filename=os.path.basename(image_url),
-                       content_type='application/octet-stream')
+    async with aiohttp.ClientSession() as fetch_session:
+        for image_url in image_urls:
+            async with fetch_session.get(image_url) as img_response:
+                if img_response.status == 200:
+                    image_bytes = await img_response.read()
+                    filename = os.path.basename(image_url)
+                    content_type = mimetypes.guess_type(filename)[0] or 'image/jpeg'
+                    data.add_field(
+                        'image[]',
+                        image_bytes,
+                        filename=filename,
+                        content_type=content_type
+                    )
 
     data.add_field('prompt', prompt)
     data.add_field('model', 'gpt-image-1')

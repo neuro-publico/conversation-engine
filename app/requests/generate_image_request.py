@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 class GenerateImageRequest(BaseModel):
     file: Optional[str] = None
     file_url: Optional[str] = None
+    file_urls: Optional[list[str]] = None
     owner_id: Optional[str] = None
     prompt: Optional[str] = None
     agent_id: Optional[str] = None
