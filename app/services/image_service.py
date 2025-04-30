@@ -1,7 +1,6 @@
 from app.configurations.config import (
     AGENT_IMAGE_VARIATIONS,
 )
-from app.externals.agent_config.agent_config_client import get_agent
 from app.externals.agent_config.requests.agent_config_request import AgentConfigRequest
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.requests.generate_image_request import GenerateImageRequest
@@ -18,7 +17,7 @@ import base64
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.images.image_client import generate_image_variation, google_image, openai_image_edit
+from app.externals.images.image_client import openai_image_edit
 from typing import Optional
 
 load_dotenv()
@@ -41,17 +40,10 @@ class ImageService(ImageServiceInterface):
             )
         )
 
-    async def _generate_single_variation(self, url_image: str, prompt: str, owner_id: str,
+    async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None) -> str:
 
-        try:
-            image_content = await openai_image_edit(image_url=url_image, prompt=prompt)
-        except Exception as e:
-            try:
-                image_content = await google_image(prompt=prompt, file=file)
-            except Exception as e:
-                image_content = await generate_image_variation(image_url=url_image, prompt=prompt)
-
+        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -81,7 +73,7 @@ class ImageService(ImageServiceInterface):
         response = await self.message_service.handle_message(message_request)
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
-            self._generate_single_variation(original_image_response.s3_url, prompt, owner_id, folder_id, request.file)
+            self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id, request.file)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
@@ -91,39 +83,45 @@ class ImageService(ImageServiceInterface):
 
     async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
-        original_url = None
+        urls = request.file_urls or []
+        original_url = request.file_url
 
         if request.file:
             original_image_response = await self._upload_to_s3(request.file, owner_id, folder_id, "original")
             original_url = original_image_response.s3_url
 
+        if len(urls) == 0 and original_url:
+            urls.append(request.file_url)
+
         tasks = [
             self._generate_single_variation(
-                original_url,
+                urls,
                 request.prompt,
                 owner_id,
                 folder_id,
-                request.file
+                request.file,
             )
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
 
         return GenerateImageResponse(
+            original_urls=urls,
             generated_urls=generated_urls,
             original_url=original_url,
             generated_prompt=request.prompt
         )
 
     async def generate_images_from_agent(self, request: GenerateImageRequest, owner_id: str):
-        data = AgentConfigRequest(
+        data = MessageRequest(
             agent_id=request.agent_id,
-            query="",
-            parameter_prompt=request.parameter_prompt
+            query=request.agent_id,
+            parameter_prompt=request.parameter_prompt,
+            conversation_id="",
         )
 
-        agent_config = await get_agent(data)
-        request.prompt = agent_config.prompt
+        message = await self.message_service.handle_message(data)
+        request.prompt = message["text"]
         response = await self.generate_images_from(request, owner_id)
 
         return response
