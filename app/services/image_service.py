@@ -13,12 +13,14 @@ from app.services.message_service_interface import MessageServiceInterface
 from app.externals.s3_upload.s3_upload_client import upload_file
 from fastapi import Depends
 import asyncio
-import base64
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
 from app.externals.images.image_client import openai_image_edit
 from typing import Optional
+import base64
+import io
+from PIL import Image
 
 load_dotenv()
 
@@ -31,6 +33,7 @@ class ImageService(ImageServiceInterface):
                             prefix_name: str) -> S3UploadResponse:
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
+        image_base64 = self.__reduce_image(image_base64)
 
         return await upload_file(
             S3UploadRequest(
@@ -39,6 +42,15 @@ class ImageService(ImageServiceInterface):
                 filename=file_name
             )
         )
+
+    def __reduce_image(self, image_bytes):
+        image_bytes_decode = base64.b64decode(image_bytes)
+        img = Image.open(io.BytesIO(image_bytes_decode))
+        output_buffer = io.BytesIO()
+        img.save(output_buffer, format='WEBP', quality=80)
+        reduced_image_bytes = output_buffer.getvalue()
+
+        return base64.b64encode(reduced_image_bytes).decode('utf-8')
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None) -> str:
