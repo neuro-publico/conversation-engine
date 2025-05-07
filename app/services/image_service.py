@@ -43,13 +43,19 @@ class ImageService(ImageServiceInterface):
             )
         )
 
-    def __reduce_image(self, image_bytes):
-        image_bytes_decode = base64.b64decode(image_bytes)
-        img = Image.open(io.BytesIO(image_bytes_decode))
+    def __reduce_image(self, image_bytes_base64: str) -> str:
+        image_bytes = base64.b64decode(image_bytes_base64)
+        img = Image.open(io.BytesIO(image_bytes))
+
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGBA")
+        else:
+            img = img.convert("RGB")
+
         output_buffer = io.BytesIO()
         img.save(output_buffer, format='WEBP', quality=80)
-        reduced_image_bytes = output_buffer.getvalue()
 
+        reduced_image_bytes = output_buffer.getvalue()
         return base64.b64encode(reduced_image_bytes).decode('utf-8')
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
