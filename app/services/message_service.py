@@ -20,6 +20,7 @@ from app.configurations.pdf_manual_config import PDF_MANUAL_SECTIONS
 from app.pdf.pdf_manual_generator import PDFManualGenerator
 from app.externals.amazon.requests.amazon_search_request import AmazonSearchRequest
 from app.externals.amazon.amazon_client import search_products
+from app.requests.resolve_funnel_request import ResolveFunnelRequest
 
 
 class MessageService(MessageServiceInterface):
@@ -129,3 +130,55 @@ class MessageService(MessageServiceInterface):
         )
 
         return result
+
+    async def resolve_funnel(self, request: ResolveFunnelRequest):
+        pain_detection_response = await self.handle_message(MessageRequest(
+            agent_id="pain_detection",
+            conversation_id="",
+            query="pain_detection",
+            parameter_prompt={
+                "product_name": request.product_name,
+                "product_description": request.product_description
+            }
+        ))
+
+        pain_detection_message = pain_detection_response['text']
+
+        buyer_detection_response = await self.handle_message(MessageRequest(
+            agent_id="buyer_detection",
+            conversation_id="",
+            query="buyer_detection",
+            parameter_prompt={
+                "product_name": request.product_name,
+                "product_description": request.product_description,
+                "pain_detection": pain_detection_message
+            }
+        ))
+
+        buyer_detection_message = buyer_detection_response['text']
+
+        sales_angles_response = await self.handle_message_json(MessageRequest(
+            agent_id="sales_angles_v2",
+            conversation_id="",
+            query="sales_angles_v2",
+            json_parser={
+                "angles": [
+                    {
+                        "name": "string",
+                        "description": "string"
+                    }
+                ]
+            },
+            parameter_prompt={
+                "product_name": request.product_name,
+                "product_description": request.product_description,
+                "pain_detection": pain_detection_message,
+                "buyer_detection": buyer_detection_message
+            }
+        ))
+
+        return {
+            "pain_detection": pain_detection_message,
+            "buyer_detection": buyer_detection_message,
+            "sales_angles": sales_angles_response["angles"]
+        }

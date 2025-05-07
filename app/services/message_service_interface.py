@@ -3,6 +3,7 @@ from abc import abstractmethod, ABC
 from app.requests.copy_request import CopyRequest
 from app.requests.message_request import MessageRequest
 from app.requests.recommend_product_request import RecommendProductRequest
+from app.requests.resolve_funnel_request import ResolveFunnelRequest
 
 
 class MessageServiceInterface(ABC):
@@ -23,4 +24,8 @@ class MessageServiceInterface(ABC):
         pass
 
     async def generate_pdf(self, request):
+        pass
+
+    @abstractmethod
+    async def resolve_funnel(self, request: ResolveFunnelRequest):
         pass

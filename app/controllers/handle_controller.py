@@ -5,6 +5,7 @@ from app.requests.copy_request import CopyRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
+from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from fastapi import APIRouter, Depends, Request, HTTPException
 from app.requests.message_request import MessageRequest
 from app.requests.variation_image_request import VariationImageRequest
@@ -108,6 +109,25 @@ async def generate_images_from_api_key(
     return response
 
 
+@router.post("/generate-images-from-agent/api-key")
+@require_api_key
+async def generate_images_from_agent_api_key(
+        request: Request,
+        generate_image_request: GenerateImageRequest,
+        service: ImageServiceInterface = Depends()
+):
+    if not generate_image_request.file and generate_image_request.file_url:
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(generate_image_request.file_url)
+                response.raise_for_status()
+                generate_image_request.file = base64.b64encode(response.content).decode()
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error for get file: {str(e)}")
+    response = await service.generate_images_from_agent(generate_image_request, generate_image_request.owner_id)
+    return response
+
+
 @router.post("/generate-copies")
 async def generate_copies(
         copy_request: CopyRequest,
@@ -125,6 +145,15 @@ async def scrape_product(
         service: ProductScrapingServiceInterface = Depends()
 ):
     response = await service.scrape_product(scraping_request)
+    return response
+
+
+@router.post("/resolve-info-funnel")
+async def resolve_funnel(
+        request: ResolveFunnelRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.resolve_funnel(request)
     return response
 
 
