@@ -33,12 +33,20 @@ class ImageService(ImageServiceInterface):
                             prefix_name: str) -> S3UploadResponse:
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
-        image_base64 = self.__reduce_image(image_base64)
+        image_base64_reduce = self.__reduce_image(image_base64)
+
+        await upload_file(
+            S3UploadRequest(
+                file=image_base64,
+                folder=f"{owner_id}/products/variations/{folder_id}/high",
+                filename=file_name
+            )
+        )
 
         return await upload_file(
             S3UploadRequest(
-                file=image_base64,
-                folder=f"{owner_id}/products/variations/{folder_id}",
+                file=image_base64_reduce,
+                folder=f"{owner_id}/products/variations/{folder_id}/low",
                 filename=file_name
             )
         )
@@ -53,8 +61,8 @@ class ImageService(ImageServiceInterface):
             img = img.convert("RGB")
 
         original_width, original_height = img.size
-        new_width = int(original_width * 0.70)
-        new_height = int(original_height * 0.70)
+        new_width = int(original_width * 0.30)
+        new_height = int(original_height * 0.30)
         new_width = max(1, new_width)
         new_height = max(1, new_height)
         img = img.resize((new_width, new_height))
