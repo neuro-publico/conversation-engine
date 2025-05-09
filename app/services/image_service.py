@@ -34,25 +34,17 @@ class ImageService(ImageServiceInterface):
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
         original_image_bytes = base64.b64decode(image_base64)
-        image_base64_high, image_base64_low = self._process_image_for_upload(original_image_bytes)
-
-        await upload_file(
-            S3UploadRequest(
-                file=image_base64_high,
-                folder=f"{owner_id}/products/variations/{folder_id}/high",
-                filename=file_name
-            )
-        )
+        image_base64_high = self._process_image_for_upload(original_image_bytes)
 
         return await upload_file(
             S3UploadRequest(
-                file=image_base64_low,
-                folder=f"{owner_id}/products/variations/{folder_id}/low",
+                file=image_base64_high,
+                folder=f"{owner_id}/products/variations/{folder_id}",
                 filename=file_name
             )
         )
 
-    def _process_image_for_upload(self, original_image_bytes: bytes) -> tuple[str, str]:
+    def _process_image_for_upload(self, original_image_bytes: bytes) -> str:
         img = Image.open(io.BytesIO(original_image_bytes))
 
         if img.mode in ("RGBA", "P"):
@@ -61,32 +53,10 @@ class ImageService(ImageServiceInterface):
             img_converted = img.convert("RGB")
 
         high_output_buffer = io.BytesIO()
-        img_converted.save(high_output_buffer, format='WEBP')
+        img_converted.save(high_output_buffer, format='WEBP', quality=80)
         image_base64_high = base64.b64encode(high_output_buffer.getvalue()).decode('utf-8')
 
-        original_width, original_height = img_converted.size
-        new_width = int(original_width * 0.60)
-        new_height = int(original_height * 0.60)
-        new_width = max(1, new_width)
-        new_height = max(1, new_height)
-
-        resized_img = img_converted.resize((new_width, new_height))
-
-        temp_buffer_quality_100 = io.BytesIO()
-        resized_img.save(temp_buffer_quality_100, format='WEBP')
-        bytes_quality_100 = temp_buffer_quality_100.getvalue()
-        size_kb_quality_100 = len(bytes_quality_100) / 1024
-
-        final_low_image_bytes = bytes_quality_100
-        if size_kb_quality_100 > 150:
-            print("al pelosdasdasdas")
-            final_low_buffer_quality_80 = io.BytesIO()
-            resized_img.save(final_low_buffer_quality_80, format='WEBP', quality=80)
-            final_low_image_bytes = final_low_buffer_quality_80.getvalue()
-
-        image_base64_low = base64.b64encode(final_low_image_bytes).decode('utf-8')
-
-        return image_base64_high, image_base64_low
+        return image_base64_high
 
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
