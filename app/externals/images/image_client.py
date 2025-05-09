@@ -137,10 +137,12 @@ async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
                         content_type=content_type
                     )
 
+    prompt = prompt + ". **escena completa visible, composición centrada, todos los elementos dentro del marco cuadrado, nada recortado en los bordes, composición completa**"
+
+    data.add_field('size', '1024x1024')
     data.add_field('prompt', prompt)
     data.add_field('model', 'gpt-image-1')
     data.add_field('n', '1')
-    data.add_field('size', '1024x1024')
 
     try:
         async with aiohttp.ClientSession() as session:

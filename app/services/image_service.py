@@ -33,30 +33,31 @@ class ImageService(ImageServiceInterface):
                             prefix_name: str) -> S3UploadResponse:
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
-        image_base64 = self.__reduce_image(image_base64)
+        original_image_bytes = base64.b64decode(image_base64)
+        image_base64_high = self._process_image_for_upload(original_image_bytes)
 
         return await upload_file(
             S3UploadRequest(
-                file=image_base64,
+                file=image_base64_high,
                 folder=f"{owner_id}/products/variations/{folder_id}",
                 filename=file_name
             )
         )
 
-    def __reduce_image(self, image_bytes_base64: str) -> str:
-        image_bytes = base64.b64decode(image_bytes_base64)
-        img = Image.open(io.BytesIO(image_bytes))
+    def _process_image_for_upload(self, original_image_bytes: bytes) -> str:
+        img = Image.open(io.BytesIO(original_image_bytes))
 
         if img.mode in ("RGBA", "P"):
-            img = img.convert("RGBA")
+            img_converted = img.convert("RGBA")
         else:
-            img = img.convert("RGB")
+            img_converted = img.convert("RGB")
 
-        output_buffer = io.BytesIO()
-        img.save(output_buffer, format='WEBP', quality=80)
+        high_output_buffer = io.BytesIO()
+        img_converted.save(high_output_buffer, format='WEBP', quality=80)
+        image_base64_high = base64.b64encode(high_output_buffer.getvalue()).decode('utf-8')
 
-        reduced_image_bytes = output_buffer.getvalue()
-        return base64.b64encode(reduced_image_bytes).decode('utf-8')
+        return image_base64_high
+
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None) -> str:
