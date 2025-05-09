@@ -137,7 +137,7 @@ async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
                         content_type=content_type
                     )
 
-    prompt = prompt + " **todo visible dentro del encuadre, centrado en una imagen cuadrada, composición ajustada al marco, sin elementos fuera del marco, escena contenida, sin recortes**"
+    prompt = prompt + ". **escena completa visible, composición centrada, todos los elementos dentro del marco cuadrado, nada recortado en los bordes, composición completa**"
 
     data.add_field('size', '1024x1024')
     data.add_field('prompt', prompt)
