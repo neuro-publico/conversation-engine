@@ -140,7 +140,6 @@ async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
     data.add_field('prompt', prompt)
     data.add_field('model', 'gpt-image-1')
     data.add_field('n', '1')
-    data.add_field('size', '1024x1024')
 
     try:
         async with aiohttp.ClientSession() as session:
