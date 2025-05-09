@@ -52,6 +52,13 @@ class ImageService(ImageServiceInterface):
         else:
             img = img.convert("RGB")
 
+        original_width, original_height = img.size
+        new_width = int(original_width * 0.70)
+        new_height = int(original_height * 0.70)
+        new_width = max(1, new_width)
+        new_height = max(1, new_height)
+        img = img.resize((new_width, new_height))
+
         output_buffer = io.BytesIO()
         img.save(output_buffer, format='WEBP', quality=80)
 
