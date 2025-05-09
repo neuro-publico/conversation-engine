@@ -33,37 +33,61 @@ class ImageService(ImageServiceInterface):
                             prefix_name: str) -> S3UploadResponse:
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
-        image_base64 = self.__reduce_image(image_base64)
+        original_image_bytes = base64.b64decode(image_base64)
+        image_base64_high, image_base64_low = self._process_image_for_upload(original_image_bytes)
 
-        return await upload_file(
+        await upload_file(
             S3UploadRequest(
-                file=image_base64,
-                folder=f"{owner_id}/products/variations/{folder_id}",
+                file=image_base64_high,
+                folder=f"{owner_id}/products/variations/{folder_id}/high",
                 filename=file_name
             )
         )
 
-    def __reduce_image(self, image_bytes_base64: str) -> str:
-        image_bytes = base64.b64decode(image_bytes_base64)
-        img = Image.open(io.BytesIO(image_bytes))
+        return await upload_file(
+            S3UploadRequest(
+                file=image_base64_low,
+                folder=f"{owner_id}/products/variations/{folder_id}/low",
+                filename=file_name
+            )
+        )
+
+    def _process_image_for_upload(self, original_image_bytes: bytes) -> tuple[str, str]:
+        img = Image.open(io.BytesIO(original_image_bytes))
 
         if img.mode in ("RGBA", "P"):
-            img = img.convert("RGBA")
+            img_converted = img.convert("RGBA")
         else:
-            img = img.convert("RGB")
+            img_converted = img.convert("RGB")
 
-        original_width, original_height = img.size
-        new_width = int(original_width * 0.70)
-        new_height = int(original_height * 0.70)
+        high_output_buffer = io.BytesIO()
+        img_converted.save(high_output_buffer, format='WEBP')
+        image_base64_high = base64.b64encode(high_output_buffer.getvalue()).decode('utf-8')
+
+        original_width, original_height = img_converted.size
+        new_width = int(original_width * 0.60)
+        new_height = int(original_height * 0.60)
         new_width = max(1, new_width)
         new_height = max(1, new_height)
-        img = img.resize((new_width, new_height))
 
-        output_buffer = io.BytesIO()
-        img.save(output_buffer, format='WEBP', quality=80)
+        resized_img = img_converted.resize((new_width, new_height))
 
-        reduced_image_bytes = output_buffer.getvalue()
-        return base64.b64encode(reduced_image_bytes).decode('utf-8')
+        temp_buffer_quality_100 = io.BytesIO()
+        resized_img.save(temp_buffer_quality_100, format='WEBP')
+        bytes_quality_100 = temp_buffer_quality_100.getvalue()
+        size_kb_quality_100 = len(bytes_quality_100) / 1024
+
+        final_low_image_bytes = bytes_quality_100
+        if size_kb_quality_100 > 150:
+            print("al pelosdasdasdas")
+            final_low_buffer_quality_80 = io.BytesIO()
+            resized_img.save(final_low_buffer_quality_80, format='WEBP', quality=80)
+            final_low_image_bytes = final_low_buffer_quality_80.getvalue()
+
+        image_base64_low = base64.b64encode(final_low_image_bytes).decode('utf-8')
+
+        return image_base64_high, image_base64_low
+
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None) -> str:
