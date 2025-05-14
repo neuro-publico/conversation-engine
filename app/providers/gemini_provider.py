@@ -15,4 +15,4 @@ class GeminiProvider(AIProviderInterface):
         )
 
     def supports_interleaved_files(self) -> bool:
-        return True 
+        return True
