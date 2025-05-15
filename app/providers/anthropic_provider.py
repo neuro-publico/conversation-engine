@@ -12,4 +12,4 @@ class AnthropicProvider(AIProviderInterface):
         )
 
     def supports_interleaved_files(self) -> bool:
-        return False
+        return True
