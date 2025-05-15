@@ -7,7 +7,7 @@ httpx>=0.24.0
 langchain-community>=0.2.0
 langchain-openai>=0.0.5
 openai
-langgraph>=0.0.10
+langgraph==0.3.31
 langchain-core>=0.1.17
 langchain-anthropic
 langchain-ollama
