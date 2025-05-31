@@ -15,9 +15,13 @@ app = FastAPI(
     description="API for agent ai",
     version="1.0.0"
 )
+
 app.include_router(router)
+
+conversation_manager_singleton = ConversationManager()
+
 app.dependency_overrides[MessageServiceInterface] = MessageService
-app.dependency_overrides[ConversationManagerInterface] = ConversationManager
+app.dependency_overrides[ConversationManagerInterface] = lambda: conversation_manager_singleton
 app.dependency_overrides[ImageServiceInterface] = ImageService
 app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingService
 
