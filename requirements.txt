@@ -18,3 +18,4 @@ langchain_mcp
 langchain-mcp-adapters==0.0.9
 langchain-google-genai
 Pillow==10.3.0
+html5lib

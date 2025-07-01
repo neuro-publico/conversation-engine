@@ -4,9 +4,12 @@ from app.externals.aliexpress.aliexpress_client import get_item_detail
 import re
 from fastapi import HTTPException
 from decimal import Decimal, InvalidOperation
-
+from typing import Dict, Any
 
 class AliexpressScraper(ScraperInterface):
+    async def scrape_direct(self, html: str) -> Dict[str, Any]:
+        return {}
+
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         item_id = self._extract_item_id(url)
         product_details = await get_item_detail(item_id)
