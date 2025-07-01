@@ -2,6 +2,7 @@ import base64
 import httpx
 
 from app.requests.copy_request import CopyRequest
+from app.requests.direct_scrape_request import DirectScrapeRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
@@ -145,6 +146,16 @@ async def scrape_product(
         service: ProductScrapingServiceInterface = Depends()
 ):
     response = await service.scrape_product(scraping_request)
+    return response
+
+@router.post("/scrape-direct-html")
+@require_auth
+async def scrape_product_direct(
+        request: Request,
+        scraping_request: DirectScrapeRequest,
+        service: ProductScrapingServiceInterface = Depends()
+):
+    response = await service.scrape_direct(scraping_request.html)
     return response
 
 

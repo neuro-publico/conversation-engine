@@ -6,9 +6,13 @@ from typing import Dict, Any, List, Optional
 import re
 from app.externals.amazon.amazon_client import get_product_details
 from decimal import Decimal
+from typing import Dict, Any
 
 
 class AmazonScraper(ScraperInterface):
+    async def scrape_direct(self, html: str) -> Dict[str, Any]:
+        return {}
+
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         asin = self._extract_asin(url)
 

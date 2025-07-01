@@ -18,6 +18,7 @@ S3_UPLOAD_API = os.getenv('S3_UPLOAD_API')
 
 AGENT_IMAGE_VARIATIONS = "agent_image_variations"
 SCRAPER_AGENT = "scraper_agent"
+SCRAPER_AGENT_DIRECT = "scraper_agent_direct_code"
 
 AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
 
