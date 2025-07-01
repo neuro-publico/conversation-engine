@@ -21,7 +21,6 @@ async def get_product_details(product_id: str) -> Dict[str, Any]:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
-            # You can add more specific error handling here
             raise Exception(f"API request failed with status {e.response.status_code}: {e.response.text}")
         except httpx.RequestError as e:
             raise Exception(f"API request failed: {str(e)}") 
