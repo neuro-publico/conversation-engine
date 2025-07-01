@@ -26,9 +26,6 @@ class DropiScraper(ScraperInterface):
                 "description": self._get_description(product_data),
                 "external_sell_price": self._get_price(product_data),
                 "images": self._get_images(product_data),
-                "sku": self._get_sku(product_data),
-                "suggested_price": self._get_suggested_price(product_data),
-                "stock": self._get_stock(product_data),
             }
 
             variants = self._extract_variants(product_data)
@@ -77,23 +74,6 @@ class DropiScraper(ScraperInterface):
         if not price_str:
             return None
         return parse_price(price_str)
-
-    def _get_sku(self, product_data: Dict[str, Any]) -> str:
-        return product_data.get("sku", "")
-
-    def _get_suggested_price(self, product_data: Dict[str, Any]) -> Optional[Decimal]:
-        price_str = product_data.get("suggested_price")
-        if not price_str:
-            return None
-        return parse_price(price_str)
-
-    def _get_stock(self, product_data: Dict[str, Any]) -> int:
-        warehouses = product_data.get("warehouse_product", [])
-        if not warehouses:
-            return 0
-
-        total_stock = sum(w.get("stock", 0) for w in warehouses)
-        return total_stock
 
     def _get_images(self, product_data: Dict[str, Any]) -> List[str]:
         gallery = product_data.get("gallery", [])
