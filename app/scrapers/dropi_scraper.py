@@ -50,24 +50,25 @@ class DropiScraper(ScraperInterface):
         if not response.get("isSuccess"):
             raise ValueError("Dropi API returned an error.")
 
-        objects = response.get("objects", [])
-        if not objects:
+        product_data = response.get("objects")
+        if not product_data or not isinstance(product_data, dict):
             raise ValueError("No product data found in Dropi response")
-        return objects[0]
+        return product_data
 
     def _get_name(self, product_data: Dict[str, Any]) -> str:
         return product_data.get("name", "")
 
     def _get_description(self, product_data: Dict[str, Any]) -> str:
-        categories = product_data.get("categories", [])
-        if not categories:
+        html_description = product_data.get("description", "")
+        if not html_description:
             return ""
 
-        category_names = [cat.get("name") for cat in categories if cat.get("name")]
-        if not category_names:
-            return ""
-
-        return f"Categorías: {', '.join(category_names)}"
+        # Remove HTML tags for a cleaner description
+        clean_text = re.sub(r'<[^>]+>', ' ', html_description)
+        # Replace <br> with newlines and clean up whitespace
+        clean_text = clean_text.replace('<br>', '\n').strip()
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        return clean_text
 
     def _get_price(self, product_data: Dict[str, Any]) -> Optional[Decimal]:
         price_str = product_data.get("sale_price")
@@ -76,12 +77,12 @@ class DropiScraper(ScraperInterface):
         return parse_price(price_str)
 
     def _get_images(self, product_data: Dict[str, Any]) -> List[str]:
-        gallery = product_data.get("gallery", [])
-        if not gallery:
+        photos = product_data.get("photos", [])
+        if not photos:
             return []
 
         images = []
-        for item in gallery:
+        for item in photos:
             if item.get("urlS3"):
                 images.append(DROPI_S3_BASE_URL + item["urlS3"])
         return images
