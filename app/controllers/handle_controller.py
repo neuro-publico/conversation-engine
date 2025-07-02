@@ -17,10 +17,27 @@ from app.services.product_scraping_service_interface import ProductScrapingServi
 from app.middlewares.auth_middleware import require_auth, require_api_key
 from pydantic import BaseModel
 
+# Importaciones para Dropi
+from app.services.dropi_service_interface import DropiServiceInterface
+from app.services.dropi_service import DropiService
+
 router = APIRouter(
     prefix="/api/ms/conversational-engine",
     tags=["conversational-agent"]
 )
+
+@router.get("/integration/dropi/departments")
+async def get_departments(
+    service: DropiServiceInterface = Depends(DropiService)
+):
+    return await service.get_departments()
+
+@router.get("/integration/dropi/departments/{department_id}/cities")
+async def get_cities_by_department(
+    department_id: int,
+    service: DropiServiceInterface = Depends(DropiService)
+):
+    return await service.get_cities_by_department(department_id)
 
 @router.post("/handle-message")
 async def handle_message(
