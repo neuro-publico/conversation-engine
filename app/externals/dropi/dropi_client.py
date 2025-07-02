@@ -6,18 +6,14 @@ from app.configurations.config import DROPI_API_URL, DROPI_API_KEY
 
 async def get_product_details(product_id: str) -> Dict[str, Any]:
     headers = {
-        "dropi-integration-key": DROPI_API_KEY,
-        "Content-Type": "application/json"
+        "dropi-integration-key": DROPI_API_KEY
     }
-    payload = {
-        "pageSize": 1,
-        "startData": 0,
-        "products.id": product_id
-    }
+
+    url = f"{DROPI_API_URL}/{product_id}"
 
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(DROPI_API_URL, headers=headers, json=payload)
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as e:
