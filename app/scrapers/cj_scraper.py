@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 import httpx
 from app.scrapers.scraper_interface import ScraperInterface
 from fastapi import HTTPException
@@ -6,6 +8,9 @@ from fastapi import HTTPException
 class CJScraper(ScraperInterface):
     def __init__(self):
         self.webhook_url = "https://n8n.fluxi.co/webhook/cj-search"
+
+    async def scrape_direct(self, html: str) -> Dict[str, Any]:
+        return {}
 
     async def scrape(self, url: str, domain: str = None) -> dict:
         payload = {

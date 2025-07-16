@@ -18,6 +18,7 @@ S3_UPLOAD_API = os.getenv('S3_UPLOAD_API')
 
 AGENT_IMAGE_VARIATIONS = "agent_image_variations"
 SCRAPER_AGENT = "scraper_agent"
+SCRAPER_AGENT_DIRECT = "scraper_agent_direct_code"
 
 AUTH_SERVICE_URL: str = os.getenv('AUTH_SERVICE_URL')
 
@@ -32,3 +33,7 @@ GOOGLE_GEMINI_API_KEY: str = os.getenv('GOOGLE_GEMINI_API_KEY')
 ENVIRONMENT: str = os.getenv('ENVIRONMENT')
 
 OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY')
+
+DROPI_S3_BASE_URL: str = os.getenv('DROPI_S3_BASE_URL', 'https://d39ru7awumhhs2.cloudfront.net/')
+DROPI_HOST: str = os.getenv('DROPI_HOST', 'https://test-api.dropi.co')
+DROPI_API_KEY: str = os.getenv('DROPI_API_KEY')

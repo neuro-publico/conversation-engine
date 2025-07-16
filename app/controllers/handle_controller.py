@@ -2,6 +2,7 @@ import base64
 import httpx
 
 from app.requests.copy_request import CopyRequest
+from app.requests.direct_scrape_request import DirectScrapeRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.recommend_product_request import RecommendProductRequest
@@ -16,10 +17,27 @@ from app.services.product_scraping_service_interface import ProductScrapingServi
 from app.middlewares.auth_middleware import require_auth, require_api_key
 from pydantic import BaseModel
 
+# Importaciones para Dropi
+from app.services.dropi_service_interface import DropiServiceInterface
+from app.services.dropi_service import DropiService
+
 router = APIRouter(
     prefix="/api/ms/conversational-engine",
     tags=["conversational-agent"]
 )
+
+@router.get("/integration/dropi/departments")
+async def get_departments(
+    service: DropiServiceInterface = Depends(DropiService)
+):
+    return await service.get_departments()
+
+@router.get("/integration/dropi/departments/{department_id}/cities")
+async def get_cities_by_department(
+    department_id: int,
+    service: DropiServiceInterface = Depends(DropiService)
+):
+    return await service.get_cities_by_department(department_id)
 
 @router.post("/handle-message")
 async def handle_message(
@@ -145,6 +163,16 @@ async def scrape_product(
         service: ProductScrapingServiceInterface = Depends()
 ):
     response = await service.scrape_product(scraping_request)
+    return response
+
+@router.post("/scrape-direct-html")
+@require_auth
+async def scrape_product_direct(
+        request: Request,
+        scraping_request: DirectScrapeRequest,
+        service: ProductScrapingServiceInterface = Depends()
+):
+    response = await service.scrape_direct(scraping_request.html)
     return response
 
 

@@ -16,3 +16,9 @@ class ProductScrapingService(ProductScrapingServiceInterface):
 
         scraper = self.scraping_factory.get_scraper(url)
         return await scraper.scrape(url, domain)
+
+    async def scrape_direct(self, html):
+        scraper = self.scraping_factory.get_scraper("https://www.macys.com/shop/womens-clothing/accessories/womens-sunglasses/Upc_bops_purchasable,Productsperpage/5376,120?id=28295&_additionalStoreLocations=5376")
+
+        return await scraper.scrape_direct(html)
+
