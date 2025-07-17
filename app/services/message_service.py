@@ -7,6 +7,7 @@ from app.externals.agent_config.agent_config_client import get_agent
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file, check_file_exists_direct
 from app.pdf.helpers import clean_text, clean_json
+from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.message_request import MessageRequest
@@ -181,4 +182,31 @@ class MessageService(MessageServiceInterface):
             "pain_detection": pain_detection_message,
             "buyer_detection": buyer_detection_message,
             "sales_angles": sales_angles_response["angles"]
+        }
+
+    async def resolve_brand_context(self, request: BrandContextResolverRequest):
+        brand_agent_task = self.handle_message_json(MessageRequest(
+            agent_id="store_brand_agent",
+            conversation_id="",
+            query="store_brand_agent",
+            parameter_prompt=request.prompt,
+            json_parser={"brands": ["string", "string"]}
+        ))
+
+        context_agent_task = self.handle_message_json(MessageRequest(
+            agent_id="store_context_agent",
+            conversation_id="",
+            query="store_context_agent",
+            parameter_prompt=request.prompt,
+            json_parser={"contexts": ["string", "string"]}
+        ))
+
+        responses = await asyncio.gather(brand_agent_task, context_agent_task)
+
+        brands = responses[0].get("brands", [])
+        contexts = responses[1].get("contexts", [])
+
+        return {
+            "brands": brands,
+            "contexts": contexts
         }

@@ -1,6 +1,7 @@
 import base64
 import httpx
 
+from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
 from app.requests.direct_scrape_request import DirectScrapeRequest
 from app.requests.generate_image_request import GenerateImageRequest
@@ -182,6 +183,16 @@ async def resolve_funnel(
         message_service: MessageServiceInterface = Depends()
 ):
     response = await message_service.resolve_funnel(request)
+    return response
+
+@router.post("/store/brand-context-resolver")
+@require_auth
+async def brand_context_resolver(
+        request: Request,
+        requestBrand: BrandContextResolverRequest,
+        message_service: MessageServiceInterface = Depends()
+):
+    response = await message_service.resolve_brand_context(requestBrand)
     return response
 
 
