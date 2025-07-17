@@ -179,10 +179,10 @@ async def scrape_product_direct(
 
 @router.post("/resolve-info-funnel")
 async def resolve_funnel(
-        requestResolve: ResolveFunnelRequest,
+        request: ResolveFunnelRequest,
         message_service: MessageServiceInterface = Depends()
 ):
-    response = await message_service.resolve_funnel(requestResolve)
+    response = await message_service.resolve_funnel(request)
     return response
 
 @router.post("/store/brand-context-resolver")
