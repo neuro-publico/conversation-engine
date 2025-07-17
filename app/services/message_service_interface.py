@@ -4,6 +4,7 @@ from app.requests.copy_request import CopyRequest
 from app.requests.message_request import MessageRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
+from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 
 
 class MessageServiceInterface(ABC):
@@ -28,4 +29,8 @@ class MessageServiceInterface(ABC):
 
     @abstractmethod
     async def resolve_funnel(self, request: ResolveFunnelRequest):
+        pass
+
+    @abstractmethod
+    async def resolve_brand_context(self, request: BrandContextResolverRequest):
         pass
