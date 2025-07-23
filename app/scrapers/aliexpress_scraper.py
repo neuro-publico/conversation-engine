@@ -24,9 +24,11 @@ class AliexpressScraper(ScraperInterface):
                 "images": self._get_images(item_data)
             }
 
-            variants = self._extract_variants(item_data)
-            if variants:
-                result["variants"] = variants
+            """
+                variants = self._extract_variants(item_data)
+                if variants:
+                    result["variants"] = variants
+            """
 
             response = {
                 "provider_id": "aliexpress",
