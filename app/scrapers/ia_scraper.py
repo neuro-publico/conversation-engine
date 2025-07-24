@@ -60,10 +60,7 @@ class IAScraper(ScraperInterface):
 
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         client = ScraperAPIClient()
-        if domain and 'alibaba' in domain:
-            html_content = await client.get_html(url)
-        else:
-            html_content = await client.get_html_lambda(url)
+        html_content = await client.get_html_lambda(url)
         simplified_html_clean = clean_html_deeply(html_content)
 
         message_request = MessageRequest(
