@@ -15,8 +15,7 @@ class ScraperAPIClient:
     async def get_html(self, url: str, params: Dict[str, Any] = None) -> str:
         default_params = {
             "api_key": self.api_key,
-            "url": url,
-            "render": "true"
+            "url": url
         }
 
         if params:
