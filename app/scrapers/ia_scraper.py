@@ -17,7 +17,7 @@ class IAScraper(ScraperInterface):
         simplified_html_clean = clean_html_deeply(html)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"simplified_html_{timestamp}.html"
-    
+
         os.makedirs("scraped_html", exist_ok=True)
         
         filepath = os.path.join("scraped_html", filename)
@@ -60,7 +60,10 @@ class IAScraper(ScraperInterface):
 
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         client = ScraperAPIClient()
-        html_content = await client.get_html_lambda(url)
+        if domain and 'alibaba' in domain:
+            html_content = await client.get_html(url)
+        else:
+            html_content = await client.get_html_lambda(url)
         simplified_html_clean = clean_html_deeply(html_content)
 
         message_request = MessageRequest(
