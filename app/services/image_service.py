@@ -109,7 +109,7 @@ class ImageService(ImageServiceInterface):
         return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
                                      generated_prompt=prompt, vision_analysis=vision_analysis)
 
-    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
+    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str, resolution: Optional[str] = None):
         folder_id = uuid.uuid4().hex[:8]
         urls = request.file_urls or []
         original_url = request.file_url
@@ -128,6 +128,7 @@ class ImageService(ImageServiceInterface):
                 owner_id,
                 folder_id,
                 request.file,
+                resolution=resolution
             )
             for i in range(request.num_variations)
         ]
@@ -148,8 +149,17 @@ class ImageService(ImageServiceInterface):
             conversation_id="",
         )
 
-        message = await self.message_service.handle_message(data)
+        response_data = await self.message_service.handle_message_with_config(data)
+        agent_config = response_data["agent_config"]
+        message = response_data["message"]
+        
         request.prompt = message["text"]
-        response = await self.generate_images_from(request, owner_id)
+        
+        resolution = None
+        if (agent_config.preferences.extra_parameters and
+                'resolution' in agent_config.preferences.extra_parameters):
+            resolution = agent_config.preferences.extra_parameters['resolution']
+
+        response = await self.generate_images_from(request, owner_id, resolution=resolution)
 
         return response
