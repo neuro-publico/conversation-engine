@@ -43,6 +43,25 @@ class MessageService(MessageServiceInterface):
             agent_config=agent_config
         )
 
+    async def handle_message_with_config(self, request: MessageRequest):
+        data = AgentConfigRequest(
+            agent_id=request.agent_id,
+            query=request.query,
+            metadata_filter=request.metadata_filter,
+            parameter_prompt=request.parameter_prompt
+        )
+
+        agent_config = await get_agent(data)
+
+        message_response = await self.conversation_manager.process_conversation(
+            request=request,
+            agent_config=agent_config
+        )
+        return {
+            "message": message_response,
+            "agent_config": agent_config
+        }
+
     async def handle_message_json(self, request: MessageRequest):
         response = await self.handle_message(request)
 

@@ -60,9 +60,9 @@ class ImageService(ImageServiceInterface):
 
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
-                                         folder_id: str, file: Optional[str] = None) -> str:
+                                         folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None) -> str:
 
-        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt)
+        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -89,10 +89,19 @@ class ImageService(ImageServiceInterface):
             }]
         )
 
-        response = await self.message_service.handle_message(message_request)
+        response_data = await self.message_service.handle_message_with_config(message_request)
+        agent_config = response_data["agent_config"]
+        response = response_data["message"]
+
+        resolution = None
+        if (agent_config.preferences.extra_parameters and
+                'resolution' in agent_config.preferences.extra_parameters):
+            resolution = agent_config.preferences.extra_parameters['resolution']
+
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
-            self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id, request.file)
+            self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id,
+                                            request.file, resolution)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
