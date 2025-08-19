@@ -37,3 +37,14 @@ OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY')
 DROPI_S3_BASE_URL: str = os.getenv('DROPI_S3_BASE_URL', 'https://d39ru7awumhhs2.cloudfront.net/')
 DROPI_HOST: str = os.getenv('DROPI_HOST', 'https://test-api.dropi.co')
 DROPI_API_KEY: str = os.getenv('DROPI_API_KEY')
+
+# Base de datos local por defecto
+POSTGRES_HOST: str = os.getenv('POSTGRES_HOST', 'localhost')
+POSTGRES_DB: str = os.getenv('POSTGRES_DB', 'ads_video')
+POSTGRES_USER: str = os.getenv('POSTGRES_USER', 'postgres')
+POSTGRES_PASSWORD: str = os.getenv('POSTGRES_PASSWORD', '')
+POSTGRES_PORT: str = os.getenv('POSTGRES_PORT', '5432')
+POSTGRES_DSN_ASYNC: str = os.getenv(
+    'POSTGRES_DSN_ASYNC',
+    f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+)
