@@ -34,3 +34,7 @@ class MessageServiceInterface(ABC):
     @abstractmethod
     async def resolve_brand_context(self, request: BrandContextResolverRequest):
         pass
+
+    @abstractmethod
+    async def handle_message_with_config(self, request: MessageRequest):
+        pass

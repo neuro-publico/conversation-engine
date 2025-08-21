@@ -60,9 +60,9 @@ class ImageService(ImageServiceInterface):
 
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
-                                         folder_id: str, file: Optional[str] = None) -> str:
+                                         folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None) -> str:
 
-        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt)
+        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -89,10 +89,19 @@ class ImageService(ImageServiceInterface):
             }]
         )
 
-        response = await self.message_service.handle_message(message_request)
+        response_data = await self.message_service.handle_message_with_config(message_request)
+        agent_config = response_data["agent_config"]
+        response = response_data["message"]
+
+        resolution = None
+        if (agent_config.preferences.extra_parameters and
+                'resolution' in agent_config.preferences.extra_parameters):
+            resolution = agent_config.preferences.extra_parameters['resolution']
+
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
-            self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id, request.file)
+            self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id,
+                                            request.file, resolution)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
@@ -100,7 +109,7 @@ class ImageService(ImageServiceInterface):
         return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
                                      generated_prompt=prompt, vision_analysis=vision_analysis)
 
-    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
+    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str, resolution: Optional[str] = None):
         folder_id = uuid.uuid4().hex[:8]
         urls = request.file_urls or []
         original_url = request.file_url
@@ -119,6 +128,7 @@ class ImageService(ImageServiceInterface):
                 owner_id,
                 folder_id,
                 request.file,
+                resolution=resolution
             )
             for i in range(request.num_variations)
         ]
@@ -139,8 +149,17 @@ class ImageService(ImageServiceInterface):
             conversation_id="",
         )
 
-        message = await self.message_service.handle_message(data)
+        response_data = await self.message_service.handle_message_with_config(data)
+        agent_config = response_data["agent_config"]
+        message = response_data["message"]
+        
         request.prompt = message["text"]
-        response = await self.generate_images_from(request, owner_id)
+        
+        resolution = None
+        if (agent_config.preferences.extra_parameters and
+                'resolution' in agent_config.preferences.extra_parameters):
+            resolution = agent_config.preferences.extra_parameters['resolution']
+
+        response = await self.generate_images_from(request, owner_id, resolution=resolution)
 
         return response

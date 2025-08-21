@@ -116,7 +116,7 @@ async def google_image(prompt: str, file: Optional[str] = None) -> bytes:
         raise Exception(f"Error al generar imagen: {str(e)}")
 
 
-async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
+async def openai_image_edit(image_urls: list[str], prompt: str, resolution: Optional[str] = None) -> bytes:
     url = "https://api.openai.com/v1/images/edits"
     headers = {
         "Authorization": f"Bearer {config.OPENAI_API_KEY}"
@@ -139,7 +139,11 @@ async def openai_image_edit(image_urls: list[str], prompt: str) -> bytes:
 
     prompt = prompt + ". **escena completa visible, composición centrada, todos los elementos dentro del marco cuadrado, nada recortado en los bordes, composición completa**"
 
-    data.add_field('size', '1024x1024')
+    size = '1024x1024'
+    if resolution and resolution.strip():
+        size = resolution
+    
+    data.add_field('size', size)
     data.add_field('prompt', prompt)
     data.add_field('model', 'gpt-image-1')
     data.add_field('n', '1')
