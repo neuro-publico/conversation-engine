@@ -1,26 +1,13 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
-from app.requests.message_request import MessageRequest
-from app.services.message_service_interface import MessageServiceInterface
-
 from app.services.generate_video_service_interface import GenerateVideoServiceInterface
 from app.services.generate_video_service import GenerateVideoService
 from app.requests.generate_video_request import GenerateAdScenesRequest
-from uuid import uuid4
-import os
-from arq.connections import ArqRedis, RedisSettings
-from arq import create_pool
 from app.middlewares.auth_middleware import require_auth
-# from app.models import AdVideoJob
 
 router = APIRouter(
     prefix="/api/ms/conversational-engine/ads",
     tags=["conversational-agent"]
 )
-
-async def get_redis() -> ArqRedis:
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    settings = RedisSettings.from_dsn(redis_url)
-    return await create_pool(settings)
 
 @router.post("/generate-video", status_code=202)
 @require_auth
