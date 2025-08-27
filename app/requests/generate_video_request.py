@@ -4,6 +4,7 @@ from typing import List, Any, Optional, Dict
 
 class GenerateAdScenesRequest(BaseModel):
     ad_text: str
+    funnel_id: str
 
     @property
     def prompt(self) -> dict:

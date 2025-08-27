@@ -12,22 +12,16 @@ class AdVideoRepository(AdVideoRepositoryInterface):
 	def __init__(self):
 		pass
 
-	async def create_ad_video(self, request: GenerateAdScenesRequest, owner_id: str) -> dict[str, Any]:
+	async def create_ad_video(self, model: AdVideo) -> dict[str, Any]:
 		async with AsyncSessionLocal() as session:
-			ad_video = AdVideo(
-				owner_id=owner_id,
-				funnel_id=None,
-				status=AdVideoStatus.PENDING.value,
-				progress=0,
-			)
-			session.add(ad_video)
+			session.add(model)
 			try:
 				await session.commit()
-				await session.refresh(ad_video)
-			except SQLAlchemyError as e:
+				await session.refresh(model)
+			except SQLAlchemyError:
 				await session.rollback()
 				raise
-		return self._to_dict(ad_video)
+		return self._to_dict(model)
 
 	async def list_ad_videos(self, owner_id: Optional[str] = None) -> list[dict[str, Any]]:
 		async with AsyncSessionLocal() as session:
@@ -69,6 +63,7 @@ class AdVideoRepository(AdVideoRepositoryInterface):
 			"owner_id": model.owner_id,
 			"funnel_id": model.funnel_id,
 			"status": model.status,
+			"scenes": model.scenes,
 			"progress": model.progress,
 			"result_url": model.result_url,
 			"error": model.error,

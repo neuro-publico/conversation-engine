@@ -29,8 +29,6 @@ async def generate_video_controller(
         generate_ad_scenes_request: GenerateAdScenesRequest,
         generate_video_service: GenerateVideoServiceInterface = Depends(GenerateVideoService),
 ):
-    print("generate_video_controller")
-    print(request.state.user_info)
     user_info = getattr(request.state, "user_info", {}) or {}
     owner_id = (user_info.get("data") or {}).get("id") or user_info.get("id")
     if not owner_id:

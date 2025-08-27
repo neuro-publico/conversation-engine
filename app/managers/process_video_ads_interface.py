@@ -4,17 +4,9 @@ from typing import Dict, Any
 
 class ProcessVideoAdsInterface(ABC):
     @abstractmethod
-    async def publish(self, request: GenerateAdScenesRequest, ad_video_id: int) -> str:
+    async def handle_human_scene(self, scene: Dict[str, Any]) -> None:
         pass
 
     @abstractmethod
-    async def listen_forever(self) -> None:
-        pass
-
-    @abstractmethod
-    async def mark_in_progress(self, ad_video_id: int) -> None:
-        pass
-
-    @abstractmethod
-    async def publish_scene(self, queue_name: str, ad_video_id: int, scene: Dict[str, Any]) -> str:
+    async def handle_animated_scene(self, scene: Dict[str, Any]) -> None:
         pass

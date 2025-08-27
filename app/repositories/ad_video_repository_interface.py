@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-from app.requests.generate_video_request import GenerateAdScenesRequest
+from app.models.ad import AdVideo
 
 
 class AdVideoRepositoryInterface(ABC):
 	@abstractmethod
-	async def create_ad_video(self, request: GenerateAdScenesRequest, owner_id: str) -> dict[str, Any]:
+	async def create_ad_video(self, model: AdVideo) -> dict[str, Any]:
 		...
 
 	@abstractmethod

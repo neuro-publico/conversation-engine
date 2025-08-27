@@ -13,6 +13,8 @@ from app.services.product_scraping_service_interface import ProductScrapingServi
 
 import asyncio
 from app.managers.process_video_ads import ProcessVideoAds
+from app.listeners.ads_listener import AdsListener
+from app.configurations.sqs_config import build_sqs_client, resolve_queue_urls
 
 app = FastAPI(
     title="Conversational Agent API",
@@ -33,10 +35,21 @@ app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingServi
 
 @app.on_event("startup")
 async def start_listeners():
-    manager = ProcessVideoAds()
-    app.state.sqs_manager = manager
-    # Run SQS listener in background
-    app.state.sqs_listener_task = asyncio.create_task(manager.listen_forever())
+    handler = ProcessVideoAds()
+    sqs_client = build_sqs_client()
+    human_queue_url, animated_queue_url = resolve_queue_urls(sqs_client)
+
+    listener = AdsListener(
+        sqs_client=sqs_client,
+        handler=handler,
+        human_queue_url=human_queue_url,
+        animated_queue_url=animated_queue_url,
+    )
+
+    app.state.sqs_handler = handler
+    app.state.sqs_listener = listener
+
+    app.state.sqs_listener_task = asyncio.create_task(listener.listen_forever())
 
 
 @app.on_event("shutdown")
