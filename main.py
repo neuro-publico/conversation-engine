@@ -9,6 +9,10 @@ from app.services.message_service import MessageService
 from app.services.message_service_interface import MessageServiceInterface
 from app.services.product_scraping_service import ProductScrapingService
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
+from app.services.video_service import VideoService
+from app.services.video_service_interface import VideoServiceInterface
+from app.services.audio_service import AudioService
+from app.services.audio_service_interface import AudioServiceInterface
 
 app = FastAPI(
     title="Conversational Agent API",
@@ -24,6 +28,8 @@ app.dependency_overrides[MessageServiceInterface] = MessageService
 app.dependency_overrides[ConversationManagerInterface] = lambda: conversation_manager_singleton
 app.dependency_overrides[ImageServiceInterface] = ImageService
 app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingService
+app.dependency_overrides[VideoServiceInterface] = VideoService
+app.dependency_overrides[AudioServiceInterface] = AudioService
 
 if __name__ == "__main__":
     import uvicorn

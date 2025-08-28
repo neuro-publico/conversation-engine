@@ -37,3 +37,5 @@ OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY')
 DROPI_S3_BASE_URL: str = os.getenv('DROPI_S3_BASE_URL', 'https://d39ru7awumhhs2.cloudfront.net/')
 DROPI_HOST: str = os.getenv('DROPI_HOST', 'https://test-api.dropi.co')
 DROPI_API_KEY: str = os.getenv('DROPI_API_KEY')
+
+FAL_AI_API_KEY: str = os.getenv('FAL_AI_API_KEY')
