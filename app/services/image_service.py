@@ -16,7 +16,7 @@ import asyncio
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.images.image_client import openai_image_edit
+from app.externals.images.image_client import google_image
 from typing import Optional
 import base64
 import io
@@ -62,7 +62,7 @@ class ImageService(ImageServiceInterface):
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
                                          folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None) -> str:
 
-        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
+        image_content = await google_image(image_urls=url_images, prompt=prompt, resolution=resolution)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -106,8 +106,13 @@ class ImageService(ImageServiceInterface):
         ]
         generated_urls = await asyncio.gather(*tasks)
 
-        return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
-                                     generated_prompt=prompt, vision_analysis=vision_analysis)
+        return GenerateImageResponse(
+            generated_urls=generated_urls, 
+            original_url=original_image_response.s3_url,
+            original_urls=[original_image_response.s3_url],
+            generated_prompt=prompt, 
+            vision_analysis=vision_analysis
+        )
 
     async def generate_images_from(self, request: GenerateImageRequest, owner_id: str, resolution: Optional[str] = None):
         folder_id = uuid.uuid4().hex[:8]
