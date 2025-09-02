@@ -26,6 +26,10 @@ from app.services.video_service import VideoService
 from app.services.audio_service_interface import AudioServiceInterface
 from app.services.audio_service import AudioService
 from app.requests.generate_audio_request import GenerateAudioRequest
+from app.services.media_service import MediaService
+from app.services.media_service_interface import MediaServiceInterface
+from app.requests.merge_video_audio_request import MergeVideoAudioRequest
+from app.requests.merge_videos_request import MergeVideosRequest
 
 router = APIRouter(
     prefix="/api/ms/conversational-engine",
@@ -221,3 +225,37 @@ async def generate_audio(
 @router.get("/health")
 async def health_check():
     return {"status": "OK"}
+
+
+@router.post("/merge-video-audio")
+async def merge_video_audio(
+        requestMergeVideoAudio: MergeVideoAudioRequest,
+        media_service: MediaServiceInterface = Depends(MediaService)
+):
+    try:
+        s3_url = await media_service.merge_video_audio_and_upload(
+            requestMergeVideoAudio.video_url,
+            requestMergeVideoAudio.audio_url,
+            requestMergeVideoAudio.folder,
+            requestMergeVideoAudio.filename
+        )
+        return {"s3_url": s3_url}
+    except Exception as e:
+        print(f"[merge_video_audio] error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/merge-videos")
+async def merge_videos(
+        requestMergeVideos: MergeVideosRequest,
+        media_service: MediaServiceInterface = Depends(MediaService)
+):
+    try:
+        s3_url = await media_service.merge_videos_and_upload(
+            requestMergeVideos.video_urls,
+            requestMergeVideos.folder,
+            requestMergeVideos.filename
+        )
+        return {"s3_url": s3_url}
+    except Exception as e:
+        print(f"[merge_videos] error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
