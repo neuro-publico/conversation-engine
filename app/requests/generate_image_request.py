@@ -9,5 +9,6 @@ class GenerateImageRequest(BaseModel):
     owner_id: Optional[str] = None
     prompt: Optional[str] = None
     agent_id: Optional[str] = None
+    provider: Optional[str] = None
     num_variations: int = 4
     parameter_prompt: Optional[Dict[str, Any]] = None
