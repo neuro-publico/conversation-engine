@@ -120,9 +120,9 @@ class MessageService(MessageServiceInterface):
         return {"copies": combined_data}
 
     async def generate_pdf(self, request: GeneratePdfRequest):
-        base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}."
+        base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}. Content: {request.content}"
         base_filename = f"{request.product_id}_{request.language}"
-        version = "v1"
+        version = "v2"
         base_url = f"https://fluxi.co/{ENVIRONMENT}/assets"
         folder_path = f"{request.owner_id}/pdfs/{version}"
         s3_url = f"{base_url}/{folder_path}/{base_filename}.pdf"
@@ -139,7 +139,7 @@ class MessageService(MessageServiceInterface):
         combined_data = await self.process_multiple_agents(agent_queries)
 
         pdf_generator = PDFManualGenerator(request.product_name)
-        pdf = await pdf_generator.create_manual(combined_data)
+        pdf = await pdf_generator.create_manual(combined_data, request.title, request.image_url)
 
         result = await upload_file(
             S3UploadRequest(
