@@ -236,20 +236,21 @@ class PDFGenerator(FPDF):
             os.remove(PDFConstants.TEMP_IMAGE_PATH)
     
     def _create_image_only_cover(self, image_url: str, page_width: float, page_height: float) -> None:
-        """Crea una portada que muestra solo la imagen sin texto."""
+        """Crea una portada que muestra solo la imagen ocupando toda la página."""
         image_result = self._download_and_process_image(image_url)
         if image_result:
             temp_path, img_width, img_height = image_result
             
-            # Usar toda la página disponible para la imagen
-            available_width = page_width
-            available_height = page_height
+            # Calcular la escala para llenar toda la página (puede recortar)
+            scale_width = page_width / img_width
+            scale_height = page_height / img_height
+            # Usar la escala mayor para llenar completamente (crop to fit)
+            scale = max(scale_width, scale_height)
             
-            x_pos, y_pos, final_width, final_height = self._calculate_image_dimensions(
-                img_width, img_height, available_width, available_height
-            )
+            final_width = img_width * scale
+            final_height = img_height * scale
             
-            # Centrar la imagen en toda la página
+            # Centrar la imagen (puede quedar parcialmente fuera de los bordes)
             x_pos = (page_width - final_width) / 2
             y_pos = (page_height - final_height) / 2
             
@@ -291,27 +292,15 @@ class PDFGenerator(FPDF):
         else:
             self.first_section = False
 
-        # Crear el borde naranja exterior primero
-        margin = 10
-        current_y = self.get_y()
-        
-        # Dibujar el rectángulo del borde naranja
-        self.set_draw_color(*PDFConstants.SECTION_BORDER_COLOR)
-        self.set_line_width(0.5)  # Línea más delgada
-        self.rect(margin, current_y, self.w - 2*margin, 16)  # Rectángulo exterior
-        
-        # Crear el título con fondo negro y texto blanco (con pequeño margen interno)
+        # Crear el título con fondo gris y texto blanco (sin borde naranja)
         self.set_font("Helvetica", "B", PDFConstants.SECTION_TITLE_FONT_SIZE)
         self.set_text_color(*PDFConstants.WHITE_COLOR)  # Texto blanco
-        self.set_fill_color(*PDFConstants.SECTION_BG_COLOR)  # Fondo negro
+        self.set_fill_color(*PDFConstants.SECTION_BG_COLOR)  # Fondo gris
         
-        # Posicionar el título con un pequeño margen interno
-        self.set_xy(margin + 2, current_y + 2)  # 2 puntos de separación
+        # Crear el título con fondo gris completo
         clean_title = self._clean_text_for_latin1(title)
-        self.cell(self.w - 2*margin - 4, 12, clean_title, ln=False, fill=True, align="C", border=0)
-        
-        # Mover a la siguiente línea
-        self.set_y(current_y + 16 + 6)
+        self.cell(0, 12, clean_title, ln=True, fill=True, align="C", border=0)
+        self.ln(6)
 
         # Contenido de la sección
         self.set_text_color(*PDFConstants.BLACK_COLOR)
