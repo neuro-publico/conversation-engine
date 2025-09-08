@@ -9,10 +9,18 @@ class PDFManualGenerator:
         self.product_name = product_name
         self.pdf = PDFGenerator(product_name)
 
-    async def create_manual(self, data: dict) -> str:
+    async def create_manual(self, data: dict, title: str = None, image_url: str = None) -> str:
+        # Usar el título personalizado si se proporciona, sino usar el por defecto
+        cover_title = title if title else f"User Manual for {self.product_name}"
+        
+        # Establecer el título personalizado para que aparezca en el header de todas las páginas
+        if title:
+            self.pdf.set_custom_title(title)
+        
         self.pdf.add_cover_page(
-            f"User Manual for {self.product_name}",
-            "Everything You Need to Know to Get Started"
+            cover_title,
+            "Everything You Need to Know to Get Started",
+            image_url
         )
         self.pdf.set_auto_page_break(auto=True, margin=20)
 

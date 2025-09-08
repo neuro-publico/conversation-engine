@@ -5,6 +5,7 @@ from app.requests.message_request import MessageRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
+from app.requests.generate_pdf_request import GeneratePdfRequest
 
 
 class MessageServiceInterface(ABC):
@@ -24,7 +25,8 @@ class MessageServiceInterface(ABC):
     async def recommend_products(self, request: RecommendProductRequest):
         pass
 
-    async def generate_pdf(self, request):
+    @abstractmethod
+    async def generate_pdf(self, request: GeneratePdfRequest):
         pass
 
     @abstractmethod
