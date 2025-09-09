@@ -7,3 +7,6 @@ class GeneratePdfRequest(BaseModel):
     product_description: str
     language: str
     owner_id: str
+    image_url: str
+    title: str
+    content: str

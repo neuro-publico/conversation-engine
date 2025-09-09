@@ -16,7 +16,7 @@ import asyncio
 import uuid
 from dotenv import load_dotenv
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.images.image_client import openai_image_edit
+from app.externals.images.image_client import google_image, openai_image_edit
 from typing import Optional
 import base64
 import io
@@ -60,9 +60,14 @@ class ImageService(ImageServiceInterface):
 
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
-                                         folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None) -> str:
+                                         folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None, 
+                                         provider: Optional[str] = None) -> str:
 
-        image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
+        if provider and provider.lower() == "gemini":
+            image_content = await google_image(image_urls=url_images, prompt=prompt, resolution=resolution)
+        else:
+
+            image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -101,13 +106,18 @@ class ImageService(ImageServiceInterface):
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
             self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id,
-                                            request.file, resolution)
+                                            request.file, resolution, provider=agent_config.provider_ai)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
 
-        return GenerateImageResponse(generated_urls=generated_urls, original_url=original_image_response.s3_url,
-                                     generated_prompt=prompt, vision_analysis=vision_analysis)
+        return GenerateImageResponse(
+            generated_urls=generated_urls, 
+            original_url=original_image_response.s3_url,
+            original_urls=[original_image_response.s3_url],
+            generated_prompt=prompt, 
+            vision_analysis=vision_analysis
+        )
 
     async def generate_images_from(self, request: GenerateImageRequest, owner_id: str, resolution: Optional[str] = None):
         folder_id = uuid.uuid4().hex[:8]
@@ -128,7 +138,8 @@ class ImageService(ImageServiceInterface):
                 owner_id,
                 folder_id,
                 request.file,
-                resolution=resolution
+                resolution=resolution,
+                provider=request.provider
             )
             for i in range(request.num_variations)
         ]
@@ -154,6 +165,7 @@ class ImageService(ImageServiceInterface):
         message = response_data["message"]
         
         request.prompt = message["text"]
+        request.provider = agent_config.provider_ai
         
         resolution = None
         if (agent_config.preferences.extra_parameters and

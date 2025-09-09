@@ -1,10 +1,9 @@
 PDF_MANUAL_SECTIONS = {
-    "introduction": "Introduction",
-    "main_features": "Main Features",
-    "usage_instructions": "Usage Instructions",
-    "troubleshooting": "Troubleshooting",
-    "faq": "FAQ",
-    "conclusion": "Conclusion"
+    "introduction": "Introducción",
+    "main_features": "Características principales",
+    "usage_instructions": "Instrucciones de uso",
+    "troubleshooting": "Solución de problemas",
+    "faq": "Preguntas frecuentes"
 }
 
 PDF_MANUAL_SECTION_ORDER = [
@@ -12,6 +11,5 @@ PDF_MANUAL_SECTION_ORDER = [
     "main_features",
     "usage_instructions",
     "troubleshooting",
-    "faq",
-    "conclusion"
+    "faq"
 ]
