@@ -126,10 +126,11 @@ class MessageService(MessageServiceInterface):
         base_url = f"https://fluxi.co/{ENVIRONMENT}/assets"
         folder_path = f"{request.owner_id}/pdfs/{version}"
         s3_url = f"{base_url}/{folder_path}/{base_filename}.pdf"
-        exists = await check_file_exists_direct(s3_url)
 
-        if exists:
-            return {"s3_url": s3_url}
+        if not request.force:
+            exists = await check_file_exists_direct(s3_url)
+            if exists:
+                return {"s3_url": s3_url}
 
         agent_queries = [
             {'agent': "agent_copies_pdf", 'query': f"section: {section}. {base_query} "}

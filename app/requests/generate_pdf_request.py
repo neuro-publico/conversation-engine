@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class GeneratePdfRequest(BaseModel):
@@ -10,3 +11,4 @@ class GeneratePdfRequest(BaseModel):
     image_url: str
     title: str
     content: str
+    force: Optional[bool] = False
