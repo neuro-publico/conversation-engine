@@ -150,6 +150,9 @@ class MessageService(MessageServiceInterface):
             )
         )
 
+        if hasattr(result, 's3_url') and result.s3_url:
+            result.s3_url = result.s3_url.replace("https://fluxi.co/", "https://fluxi.s3.us-west-2.amazonaws.com/")
+        
         return result
 
     async def resolve_funnel(self, request: ResolveFunnelRequest):
