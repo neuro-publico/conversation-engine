@@ -123,7 +123,7 @@ class MessageService(MessageServiceInterface):
         base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}. Content: {request.content}"
         base_filename = f"{request.product_id}_{request.language}"
         version = "v2"
-        base_url = f"https://fluxi.co/{ENVIRONMENT}/assets"
+        base_url = f"https://fluxi.s3.us-west-2.amazonaws.com/{ENVIRONMENT}/assets"
         folder_path = f"{request.owner_id}/pdfs/{version}"
         s3_url = f"{base_url}/{folder_path}/{base_filename}.pdf"
 
