@@ -1,5 +1,6 @@
 import json
 import asyncio
+import hashlib
 
 from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID, ENVIRONMENT
 from app.configurations.copies_config import AGENT_COPIES
@@ -121,13 +122,16 @@ class MessageService(MessageServiceInterface):
 
     async def generate_pdf(self, request: GeneratePdfRequest):
         base_query = f"Product Name: {request.product_name} Description: {request.product_description}. Language: {request.language}. Content: {request.content}"
-        base_filename = f"{request.product_id}_{request.language}"
+        
+        content_hash = hashlib.md5(f"{request.title}_{request.image_url}".encode()).hexdigest()[:8]
+        base_filename = f"{request.product_id}_{request.language}_{content_hash}"
+        
         version = "v2"
         base_url = f"https://fluxi.co/{ENVIRONMENT}/assets"
         folder_path = f"{request.owner_id}/pdfs/{version}"
         s3_url = f"{base_url}/{folder_path}/{base_filename}.pdf"
-        exists = await check_file_exists_direct(s3_url)
 
+        exists = await check_file_exists_direct(s3_url)
         if exists:
             return {"s3_url": s3_url}
 
