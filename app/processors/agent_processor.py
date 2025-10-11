@@ -38,12 +38,18 @@ class AgentProcessor(ConversationProcessor):
         )
 
         try:
+            config = self._get_langsmith_config(
+                request, 
+                "agent_processor",
+                has_tools=len(self.tools) > 0
+            )
+            
             result = await agent_executor.ainvoke({
                 "context": self.context or "",
                 "chat_history": self.history,
                 "input": request.query,
                 "agent_scratchpad": ""
-            })
+            }, config=config)
             
             if "text" not in result and "output" in result:
                 result["text"] = result["output"]

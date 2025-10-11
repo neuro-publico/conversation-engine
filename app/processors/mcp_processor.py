@@ -36,7 +36,13 @@ class MCPProcessor(ConversationProcessor):
 
             messages.append({"role": "user", "content": request.query})
 
-            response = await agent.ainvoke({"messages": messages})
+            config = self._get_langsmith_config(
+                request,
+                "mcp_processor",
+                mcp_servers=list(self.mcp_config.keys()) if isinstance(self.mcp_config, dict) else []
+            )
+
+            response = await agent.ainvoke({"messages": messages}, config=config)
 
             content = ""
             if "messages" in response and response["messages"]:
