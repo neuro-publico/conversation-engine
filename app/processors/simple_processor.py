@@ -9,8 +9,8 @@ import re
 
 
 class SimpleProcessor(ConversationProcessor):
-    async def generate_response(self, context: str, chat_history: list, query: str, prompt: ChatPromptTemplate) -> Dict[
-        str, Any]:
+    async def generate_response(self, context: str, chat_history: list, query: str, prompt: ChatPromptTemplate, 
+                                config: dict = None) -> Dict[str, Any]:
         chain = (
                 {
                     "context": lambda x: x["context"],
@@ -25,7 +25,7 @@ class SimpleProcessor(ConversationProcessor):
             "context": context,
             "chat_history": chat_history,
             "input": query
-        })
+        }, config=config)
 
         content = raw_response.content
 
@@ -76,4 +76,12 @@ class SimpleProcessor(ConversationProcessor):
         messages.append(HumanMessage(content=request.query))
 
         prompt = ChatPromptTemplate.from_messages(messages)
-        return await self.generate_response(self.context, self.history, request.query, prompt)
+        
+        config = self._get_langsmith_config(
+            request,
+            "simple_processor",
+            has_json_parser=request.json_parser is not None,
+            has_files=files is not None and len(files) > 0
+        )
+        
+        return await self.generate_response(self.context, self.history, request.query, prompt, config)

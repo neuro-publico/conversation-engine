@@ -20,3 +20,4 @@ langchain-google-genai
 Pillow==10.3.0
 html5lib
 requests
+langsmith
