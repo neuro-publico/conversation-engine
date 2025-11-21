@@ -68,41 +68,68 @@ async def generate_image_variation(
                 raise Exception(f"Error {response.status}: {await response.text()}")
 
 
-async def google_image(image_urls: list[str], prompt: str, resolution: Optional[str] = None) -> bytes:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key={GOOGLE_GEMINI_API_KEY}"
+def _build_image_part(image_base64: str, is_model_25: bool) -> dict:
+    if is_model_25:
+        return {
+            "inlineData": {
+                "mimeType": 'image/jpeg',
+                "data": image_base64
+            }
+        }
+    return {
+        "inline_data": {
+            "mime_type": 'image/jpeg',
+            "data": image_base64
+        }
+    }
+
+
+async def _fetch_and_encode_images(image_urls: list[str], is_model_25: bool) -> list[dict]:
+    parts = []
+    async with aiohttp.ClientSession() as fetch_session:
+        for image_url in image_urls:
+            try:
+                async with fetch_session.get(image_url) as img_response:
+                    if img_response.status == 200:
+                        image_bytes = await img_response.read()
+                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        parts.append(_build_image_part(image_base64, is_model_25))
+            except Exception as e:
+                print(f"Error al procesar imagen de {image_url}: {str(e)}")
+                continue
+    return parts
+
+
+def _build_generation_config(is_model_25: bool, aspect_ratio: str, image_size: str) -> dict:
+    config = {"responseModalities": ["Text", "Image"]}
+    if not is_model_25:
+        config["imageConfig"] = {
+            "aspectRatio": aspect_ratio,
+            "imageSize": image_size
+        }
+    return config
+
+
+async def google_image(image_urls: list[str], prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None) -> bytes:
+    if extra_params is None:
+        extra_params = {}
+    
+    is_model_25 = model_ia and '2.5' in model_ia
+    aspect_ratio = extra_params.get('aspect_ratio', '1:1')
+    image_size = extra_params.get('image_size', '1K')
+    
+    model_name = 'gemini-2.5-flash-image-preview' if is_model_25 else 'gemini-3-pro-image-preview'
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
 
     parts = [{"text": prompt}]
-
-    if image_urls:
-        async with aiohttp.ClientSession() as fetch_session:
-            for image_url in image_urls:
-                try:
-                    async with fetch_session.get(image_url) as img_response:
-                        if img_response.status == 200:
-                            image_bytes = await img_response.read()
-                            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-                            
-                            parts.append({
-                                "inlineData": {
-                                    "mimeType": 'image/jpeg',
-                                    "data": image_base64
-                                }
-                            })
-                except Exception as e:
-                    print(f"Error al procesar imagen de {image_url}: {str(e)}")
-                    continue
-
-    generation_config = {
-        "responseModalities": ["Text", "Image"]
-    }
     
+    if image_urls:
+        image_parts = await _fetch_and_encode_images(image_urls, is_model_25)
+        parts.extend(image_parts)
+
     payload = {
-        "contents": [
-            {
-                "parts": parts
-            }
-        ],
-        "generationConfig": generation_config
+        "contents": [{"parts": parts}],
+        "generationConfig": _build_generation_config(is_model_25, aspect_ratio, image_size)
     }
 
     headers = {'Content-Type': 'application/json'}
@@ -130,7 +157,7 @@ async def google_image(image_urls: list[str], prompt: str, resolution: Optional[
         raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
 
 
-async def openai_image_edit(image_urls: list[str], prompt: str, resolution: Optional[str] = None) -> bytes:
+async def openai_image_edit(image_urls: list[str], prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None) -> bytes:
     url = "https://api.openai.com/v1/images/edits"
     headers = {
         "Authorization": f"Bearer {config.OPENAI_API_KEY}"
@@ -153,9 +180,10 @@ async def openai_image_edit(image_urls: list[str], prompt: str, resolution: Opti
 
     prompt = prompt + ". **escena completa visible, composición centrada, todos los elementos dentro del marco cuadrado, nada recortado en los bordes, composición completa**"
 
-    size = '1024x1024'
-    if resolution and resolution.strip():
-        size = resolution
+    if extra_params is None:
+        extra_params = {}
+    
+    size = extra_params.get('resolution', '1024x1024') or '1024x1024'
     
     data.add_field('size', size)
     data.add_field('prompt', prompt)

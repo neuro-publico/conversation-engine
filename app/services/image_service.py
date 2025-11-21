@@ -11,6 +11,7 @@ from app.responses.generate_image_response import GenerateImageResponse
 from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.externals.s3_upload.s3_upload_client import upload_file
+from app.helpers.image_compression_helper import compress_image_to_target
 from fastapi import Depends
 import asyncio
 import uuid
@@ -19,8 +20,6 @@ from app.externals.google_vision.google_vision_client import analyze_image
 from app.externals.images.image_client import google_image, openai_image_edit
 from typing import Optional
 import base64
-import io
-from PIL import Image
 
 load_dotenv()
 
@@ -34,40 +33,25 @@ class ImageService(ImageServiceInterface):
         unique_id = uuid.uuid4().hex[:8]
         file_name = f"{prefix_name}_{unique_id}"
         original_image_bytes = base64.b64decode(image_base64)
-        image_base64_high = self._process_image_for_upload(original_image_bytes)
+        image_base64_compressed = compress_image_to_target(original_image_bytes, target_kb=120)
 
         return await upload_file(
             S3UploadRequest(
-                file=image_base64_high,
+                file=image_base64_compressed,
                 folder=f"{owner_id}/products/variations/{folder_id}",
                 filename=file_name
             )
         )
 
-    def _process_image_for_upload(self, original_image_bytes: bytes) -> str:
-        img = Image.open(io.BytesIO(original_image_bytes))
-
-        if img.mode in ("RGBA", "P"):
-            img_converted = img.convert("RGBA")
-        else:
-            img_converted = img.convert("RGB")
-
-        high_output_buffer = io.BytesIO()
-        img_converted.save(high_output_buffer, format='WEBP', quality=80)
-        image_base64_high = base64.b64encode(high_output_buffer.getvalue()).decode('utf-8')
-
-        return image_base64_high
-
 
     async def _generate_single_variation(self, url_images: list[str], prompt: str, owner_id: str,
-                                         folder_id: str, file: Optional[str] = None, resolution: Optional[str] = None, 
-                                         provider: Optional[str] = None) -> str:
+                                         folder_id: str, file: Optional[str] = None, extra_params: Optional[dict] = None, 
+                                         provider: Optional[str] = None, model_ai: Optional[str] = None) -> str:
 
-        if provider and provider.lower() == "gemini":
-            image_content = await google_image(image_urls=url_images, prompt=prompt, resolution=resolution)
+        if provider and provider.lower() == "openai":
+            image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params)
         else:
-
-            image_content = await openai_image_edit(image_urls=url_images, prompt=prompt, resolution=resolution)
+            image_content = await google_image(image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params)
 
         content_base64 = base64.b64encode(image_content).decode('utf-8')
         final_upload = await self._upload_to_s3(
@@ -98,15 +82,15 @@ class ImageService(ImageServiceInterface):
         agent_config = response_data["agent_config"]
         response = response_data["message"]
 
-        resolution = None
-        if (agent_config.preferences.extra_parameters and
-                'resolution' in agent_config.preferences.extra_parameters):
-            resolution = agent_config.preferences.extra_parameters['resolution']
+        extra_params = None
+        if agent_config.preferences.extra_parameters:
+            extra_params = agent_config.preferences.extra_parameters
 
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
             self._generate_single_variation([original_image_response.s3_url], prompt, owner_id, folder_id,
-                                            request.file, resolution, provider=agent_config.provider_ai)
+                                            request.file, extra_params, provider=agent_config.provider_ai, 
+                                            model_ai=agent_config.model_ai)
             for i in range(request.num_variations)
         ]
         generated_urls = await asyncio.gather(*tasks)
@@ -119,7 +103,7 @@ class ImageService(ImageServiceInterface):
             vision_analysis=vision_analysis
         )
 
-    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str, resolution: Optional[str] = None):
+    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
         urls = request.file_urls or []
         original_url = request.file_url
@@ -138,8 +122,9 @@ class ImageService(ImageServiceInterface):
                 owner_id,
                 folder_id,
                 request.file,
-                resolution=resolution,
-                provider=request.provider
+                extra_params=request.extra_parameters,
+                provider=request.provider,
+                model_ai=request.model_ai
             )
             for i in range(request.num_variations)
         ]
@@ -166,12 +151,11 @@ class ImageService(ImageServiceInterface):
         
         request.prompt = message["text"]
         request.provider = agent_config.provider_ai
+        request.model_ai = agent_config.model_ai
         
-        resolution = None
-        if (agent_config.preferences.extra_parameters and
-                'resolution' in agent_config.preferences.extra_parameters):
-            resolution = agent_config.preferences.extra_parameters['resolution']
+        if agent_config.preferences.extra_parameters:
+            request.extra_parameters = agent_config.preferences.extra_parameters
 
-        response = await self.generate_images_from(request, owner_id, resolution=resolution)
+        response = await self.generate_images_from(request, owner_id)
 
         return response
