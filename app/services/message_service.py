@@ -162,7 +162,8 @@ class MessageService(MessageServiceInterface):
             query="pain_detection",
             parameter_prompt={
                 "product_name": request.product_name,
-                "product_description": request.product_description
+                "product_description": request.product_description,
+                "language": request.language
             }
         ))
 
@@ -175,7 +176,8 @@ class MessageService(MessageServiceInterface):
             parameter_prompt={
                 "product_name": request.product_name,
                 "product_description": request.product_description,
-                "pain_detection": pain_detection_message
+                "pain_detection": pain_detection_message,
+                "language": request.language
             }
         ))
 
@@ -197,7 +199,8 @@ class MessageService(MessageServiceInterface):
                 "product_name": request.product_name,
                 "product_description": request.product_description,
                 "pain_detection": pain_detection_message,
-                "buyer_detection": buyer_detection_message
+                "buyer_detection": buyer_detection_message,
+                "language": request.language
             }
         ))
 
