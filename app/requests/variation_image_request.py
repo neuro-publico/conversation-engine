@@ -1,9 +1,11 @@
 from pydantic import BaseModel, Field, validator
+from typing import Optional
 
 
 class VariationImageRequest(BaseModel):
     file: str
-    num_variations: int = Field(default=3, ge=1, le=10)  # mínimo 1, máximo 10 variaciones
+    num_variations: int = Field(default=3, ge=1, le=10)
+    language: Optional[str] = "es"
 
     @validator('num_variations')
     def validate_variations(cls, v):

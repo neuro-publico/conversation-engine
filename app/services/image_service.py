@@ -71,6 +71,7 @@ class ImageService(ImageServiceInterface):
             query=f"Attached is the product image. {vision_analysis.get_analysis_text()}",
             agent_id=AGENT_IMAGE_VARIATIONS,
             conversation_id="",
+            parameter_prompt={"language": request.language},
             files=[{
                 "type": "image",
                 "url": original_image_response.s3_url,
@@ -138,10 +139,13 @@ class ImageService(ImageServiceInterface):
         )
 
     async def generate_images_from_agent(self, request: GenerateImageRequest, owner_id: str):
+        parameter_prompt = request.parameter_prompt or {}
+        parameter_prompt["language"] = request.language
+        
         data = MessageRequest(
             agent_id=request.agent_id,
             query=request.agent_id,
-            parameter_prompt=request.parameter_prompt,
+            parameter_prompt=parameter_prompt,
             conversation_id="",
         )
 
