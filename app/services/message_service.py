@@ -18,7 +18,7 @@ from app.responses.recommend_product_response import RecommendProductResponse
 from app.services.message_service_interface import MessageServiceInterface
 from app.managers.conversation_manager_interface import ConversationManagerInterface
 from fastapi import Depends
-from app.configurations.pdf_manual_config import PDF_MANUAL_SECTIONS
+from app.configurations.pdf_manual_config import PDF_MANUAL_SECTIONS, get_sections_for_language
 from app.pdf.pdf_manual_generator import PDFManualGenerator
 from app.externals.amazon.requests.amazon_search_request import AmazonSearchRequest
 from app.externals.amazon.amazon_client import search_products
@@ -135,14 +135,16 @@ class MessageService(MessageServiceInterface):
         if exists:
             return {"s3_url": s3_url}
 
+        sections = get_sections_for_language(request.language)
+        
         agent_queries = [
             {'agent': "agent_copies_pdf", 'query': f"section: {section}. {base_query} "}
-            for section, _ in PDF_MANUAL_SECTIONS.items()
+            for section in sections.keys()
         ]
 
         combined_data = await self.process_multiple_agents(agent_queries)
 
-        pdf_generator = PDFManualGenerator(request.product_name)
+        pdf_generator = PDFManualGenerator(request.product_name, language=request.language)
         pdf = await pdf_generator.create_manual(combined_data, request.title, request.image_url)
 
         result = await upload_file(
@@ -162,7 +164,8 @@ class MessageService(MessageServiceInterface):
             query="pain_detection",
             parameter_prompt={
                 "product_name": request.product_name,
-                "product_description": request.product_description
+                "product_description": request.product_description,
+                "language": request.language
             }
         ))
 
@@ -175,7 +178,8 @@ class MessageService(MessageServiceInterface):
             parameter_prompt={
                 "product_name": request.product_name,
                 "product_description": request.product_description,
-                "pain_detection": pain_detection_message
+                "pain_detection": pain_detection_message,
+                "language": request.language
             }
         ))
 
@@ -197,7 +201,8 @@ class MessageService(MessageServiceInterface):
                 "product_name": request.product_name,
                 "product_description": request.product_description,
                 "pain_detection": pain_detection_message,
-                "buyer_detection": buyer_detection_message
+                "buyer_detection": buyer_detection_message,
+                "language": request.language
             }
         ))
 
