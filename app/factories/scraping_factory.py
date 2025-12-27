@@ -15,7 +15,7 @@ class ScrapingFactory:
     def __init__(self, message_service: MessageServiceInterface = Depends()):
         self.message_service = message_service
 
-    def get_scraper(self, url: str) -> ScraperInterface:
+    def get_scraper(self, url: str, country: str = "co") -> ScraperInterface:
         domain = urlparse(url).netloc.lower()
 
         if "amazon" in domain:
@@ -24,7 +24,7 @@ class ScrapingFactory:
             return AliexpressScraper()
         elif "cjdropshipping" in domain:
             return CJScraper()
-        elif "dropi.co" in domain:
-            return DropiScraper()
+        elif "dropi" in domain:
+            return DropiScraper(country=country)
         else:
             return IAScraper(message_service=self.message_service)

@@ -14,7 +14,7 @@ class ProductScrapingService(ProductScrapingServiceInterface):
         url = str(request.product_url)
         domain = urlparse(url).netloc.lower()
 
-        scraper = self.scraping_factory.get_scraper(url)
+        scraper = self.scraping_factory.get_scraper(url, country=request.country)
         return await scraper.scrape(url, domain)
 
     async def scrape_direct(self, html):
