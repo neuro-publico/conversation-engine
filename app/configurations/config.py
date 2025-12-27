@@ -55,3 +55,6 @@ def get_dropi_api_key(country: str = "co") -> str:
         "py": DROPI_API_KEY_PY,
     }
     return country_keys.get(country.lower(), DROPI_API_KEY)
+
+
+FAL_AI_API_KEY: str = os.getenv('FAL_AI_API_KEY')

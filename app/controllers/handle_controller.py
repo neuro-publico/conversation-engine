@@ -16,11 +16,16 @@ from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
 from app.middlewares.auth_middleware import require_auth, require_api_key
-from pydantic import BaseModel
+from app.requests.generate_video_request import GenerateVideoRequest
 
 # Importaciones para Dropi
 from app.services.dropi_service_interface import DropiServiceInterface
 from app.services.dropi_service import DropiService
+from app.services.video_service_interface import VideoServiceInterface
+from app.services.video_service import VideoService
+from app.services.audio_service_interface import AudioServiceInterface
+from app.services.audio_service import AudioService
+from app.requests.generate_audio_request import GenerateAudioRequest
 
 router = APIRouter(
     prefix="/api/ms/conversational-engine",
@@ -196,6 +201,23 @@ async def brand_context_resolver(
 ):
     response = await message_service.resolve_brand_context(requestBrand)
     return response
+
+@router.post("/generate-video")
+async def generate_video(
+        request: Request,
+        requestGenerateVideo: GenerateVideoRequest,
+        video_service: VideoServiceInterface = Depends(VideoService)
+):
+    return await video_service.generate_video(requestGenerateVideo)
+
+
+@router.post("/generate-audio")
+async def generate_audio(
+        request: Request,
+        requestGenerateAudio: GenerateAudioRequest,
+        audio_service: AudioServiceInterface = Depends(AudioService)
+):
+    return await audio_service.generate_audio(requestGenerateAudio)
 
 
 @router.get("/health")
