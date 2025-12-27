@@ -37,3 +37,21 @@ OPENAI_API_KEY: str = os.getenv('OPENAI_API_KEY')
 DROPI_S3_BASE_URL: str = os.getenv('DROPI_S3_BASE_URL', 'https://d39ru7awumhhs2.cloudfront.net/')
 DROPI_HOST: str = os.getenv('DROPI_HOST', 'https://test-api.dropi.co')
 DROPI_API_KEY: str = os.getenv('DROPI_API_KEY')
+DROPI_API_KEY_CO: str = os.getenv('DROPI_API_KEY_CO', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_MX: str = os.getenv('DROPI_API_KEY_MX', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_AR: str = os.getenv('DROPI_API_KEY_AR', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_CL: str = os.getenv('DROPI_API_KEY_CL', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_PE: str = os.getenv('DROPI_API_KEY_PE', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_PY: str = os.getenv('DROPI_API_KEY_PY', os.getenv('DROPI_API_KEY'))
+
+
+def get_dropi_api_key(country: str = "co") -> str:
+    country_keys = {
+        "co": DROPI_API_KEY_CO,
+        "mx": DROPI_API_KEY_MX,
+        "ar": DROPI_API_KEY_AR,
+        "cl": DROPI_API_KEY_CL,
+        "pe": DROPI_API_KEY_PE,
+        "py": DROPI_API_KEY_PY,
+    }
+    return country_keys.get(country.lower(), DROPI_API_KEY)
