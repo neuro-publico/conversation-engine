@@ -43,6 +43,7 @@ DROPI_API_KEY_AR: str = os.getenv('DROPI_API_KEY_AR', os.getenv('DROPI_API_KEY')
 DROPI_API_KEY_CL: str = os.getenv('DROPI_API_KEY_CL', os.getenv('DROPI_API_KEY'))
 DROPI_API_KEY_PE: str = os.getenv('DROPI_API_KEY_PE', os.getenv('DROPI_API_KEY'))
 DROPI_API_KEY_PY: str = os.getenv('DROPI_API_KEY_PY', os.getenv('DROPI_API_KEY'))
+DROPI_API_KEY_EC: str = os.getenv('DROPI_API_KEY_EC', os.getenv('DROPI_API_KEY'))
 
 
 def get_dropi_api_key(country: str = "co") -> str:
@@ -53,6 +54,7 @@ def get_dropi_api_key(country: str = "co") -> str:
         "cl": DROPI_API_KEY_CL,
         "pe": DROPI_API_KEY_PE,
         "py": DROPI_API_KEY_PY,
+        "ec": DROPI_API_KEY_EC,
     }
     return country_keys.get(country.lower(), DROPI_API_KEY)
 
