@@ -34,16 +34,18 @@ router = APIRouter(
 
 @router.get("/integration/dropi/departments")
 async def get_departments(
+    country: str = "co",
     service: DropiServiceInterface = Depends(DropiService)
 ):
-    return await service.get_departments()
+    return await service.get_departments(country)
 
 @router.get("/integration/dropi/departments/{department_id}/cities")
 async def get_cities_by_department(
     department_id: int,
+    country: str = "co",
     service: DropiServiceInterface = Depends(DropiService)
 ):
-    return await service.get_cities_by_department(department_id)
+    return await service.get_cities_by_department(department_id, country)
 
 @router.post("/handle-message")
 async def handle_message(

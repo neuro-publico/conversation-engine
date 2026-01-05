@@ -11,6 +11,9 @@ from app.configurations.config import DROPI_S3_BASE_URL
 
 
 class DropiScraper(ScraperInterface):
+    def __init__(self, country: str = "co"):
+        self.country = country
+    
     async def scrape_direct(self, html: str) -> Dict[str, Any]:
         return {}
 
@@ -18,7 +21,7 @@ class DropiScraper(ScraperInterface):
         product_id = self._extract_product_id(url)
 
         try:
-            data = await get_product_details(product_id)
+            data = await get_product_details(product_id, self.country)
             product_data = self._get_product_data(data)
 
             result = {
@@ -224,16 +227,13 @@ class DropiScraper(ScraperInterface):
         return total_stock > 0
     
     def _get_variant_images(self, variation: Dict[str, Any], product_photos: List[Dict[str, Any]]) -> List[str]:
-        """Obtiene las imágenes de la variante o del producto principal"""
         variation_id = variation.get("id")
         images = []
         
-        # Primero buscar imágenes específicas de esta variación
         for photo in product_photos:
             if photo.get("variation_id") == variation_id and photo.get("urlS3"):
                 images.append(DROPI_S3_BASE_URL + photo["urlS3"])
         
-        # Si no hay imágenes específicas de la variación, usar las imágenes principales del producto
         if not images:
             for photo in product_photos:
                 if not photo.get("variation_id") and photo.get("urlS3"):

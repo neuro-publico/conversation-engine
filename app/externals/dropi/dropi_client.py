@@ -1,15 +1,16 @@
 import httpx
 from typing import Dict, Any
 
-from app.configurations.config import DROPI_HOST, DROPI_API_KEY
+from app.configurations.config import DROPI_HOST, get_dropi_api_key
 
 
-async def get_product_details(product_id: str) -> Dict[str, Any]:
+async def get_product_details(product_id: str, country: str = "co") -> Dict[str, Any]:
     headers = {
-        "dropi-integration-key": DROPI_API_KEY
+        "dropi-integration-key": get_dropi_api_key(country)
     }
 
-    url = f"{DROPI_HOST}/integrations/products/v2/{product_id}"
+    dropi_host = DROPI_HOST.replace(".co", f".{country}")
+    url = f"{dropi_host}/integrations/products/v2/{product_id}"
 
     async with httpx.AsyncClient() as client:
         try:
@@ -22,11 +23,12 @@ async def get_product_details(product_id: str) -> Dict[str, Any]:
             raise Exception(f"API request failed: {str(e)}")
 
 
-async def get_departments() -> Dict[str, Any]:
+async def get_departments(country: str = "co") -> Dict[str, Any]:
     headers = {
-        "dropi-integration-key": DROPI_API_KEY
+        "dropi-integration-key": get_dropi_api_key(country)
     }
-    url = f"{DROPI_HOST}/integrations/department"
+    dropi_host = DROPI_HOST.replace(".co", f".{country}")
+    url = f"{dropi_host}/integrations/department"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, headers=headers)
@@ -38,16 +40,17 @@ async def get_departments() -> Dict[str, Any]:
             raise Exception(f"API request failed: {str(e)}")
 
 
-async def get_cities_by_department(department_id: int, rate_type: str) -> Dict[str, Any]:
+async def get_cities_by_department(department_id: int, rate_type: str, country: str = "co") -> Dict[str, Any]:
     headers = {
-        "dropi-integration-key": DROPI_API_KEY,
+        "dropi-integration-key": get_dropi_api_key(country),
         "Content-Type": "application/json"
     }
     payload = {
         "department_id": department_id,
         "rate_type": rate_type
     }
-    url = f"{DROPI_HOST}/integrations/trajectory/bycity"
+    dropi_host = DROPI_HOST.replace(".co", f".{country}")
+    url = f"{dropi_host}/integrations/trajectory/bycity"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(url, headers=headers, json=payload)
