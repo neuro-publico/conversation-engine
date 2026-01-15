@@ -1,9 +1,10 @@
+from urllib.parse import urlparse
+
 from fastapi import Depends
 
+from app.factories.scraping_factory import ScrapingFactory
 from app.requests.product_scraping_request import ProductScrapingRequest
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
-from app.factories.scraping_factory import ScrapingFactory
-from urllib.parse import urlparse
 
 
 class ProductScrapingService(ProductScrapingServiceInterface):
@@ -18,7 +19,8 @@ class ProductScrapingService(ProductScrapingServiceInterface):
         return await scraper.scrape(url, domain)
 
     async def scrape_direct(self, html):
-        scraper = self.scraping_factory.get_scraper("https://www.macys.com/shop/womens-clothing/accessories/womens-sunglasses/Upc_bops_purchasable,Productsperpage/5376,120?id=28295&_additionalStoreLocations=5376")
+        scraper = self.scraping_factory.get_scraper(
+            "https://www.macys.com/shop/womens-clothing/accessories/womens-sunglasses/Upc_bops_purchasable,Productsperpage/5376,120?id=28295&_additionalStoreLocations=5376"
+        )
 
         return await scraper.scrape_direct(html)
-

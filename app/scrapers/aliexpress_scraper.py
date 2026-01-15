@@ -1,10 +1,12 @@
-from app.scrapers.scraper_interface import ScraperInterface
-from typing import Dict, Any, List, Optional, Tuple
-from app.externals.aliexpress.aliexpress_client import get_item_detail
 import re
-from fastapi import HTTPException
 from decimal import Decimal, InvalidOperation
-from typing import Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import HTTPException
+
+from app.externals.aliexpress.aliexpress_client import get_item_detail
+from app.scrapers.scraper_interface import ScraperInterface
+
 
 class AliexpressScraper(ScraperInterface):
     async def scrape_direct(self, html: str) -> Dict[str, Any]:
@@ -21,7 +23,7 @@ class AliexpressScraper(ScraperInterface):
                 "name": self._get_name(item_data),
                 "description": self._get_description(item_data),
                 "external_sell_price": self._get_price(item_data),
-                "images": self._get_images(item_data)
+                "images": self._get_images(item_data),
             }
 
             """
@@ -30,27 +32,20 @@ class AliexpressScraper(ScraperInterface):
                     result["variants"] = variants
             """
 
-            response = {
-                "provider_id": "aliexpress",
-                "external_id": item_id,
-                **result
-            }
+            response = {"provider_id": "aliexpress", "external_id": item_id, **result}
 
             return {"data": response}
 
         except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Error procesando datos del producto: {str(e)}"
-            )
+            raise HTTPException(status_code=400, detail=f"Error procesando datos del producto: {str(e)}")
 
     def _extract_item_id(self, url: str) -> str:
-        pattern = r'item/(\d+)\.html'
+        pattern = r"item/(\d+)\.html"
         match = re.search(pattern, url)
         if match:
             return match.group(1)
 
-        pattern = r'itemId=(\d+)'
+        pattern = r"itemId=(\d+)"
         match = re.search(pattern, url)
         if match:
             return match.group(1)
@@ -75,8 +70,8 @@ class AliexpressScraper(ScraperInterface):
             html_content = description_data.get("html", "")
             if html_content:
                 # Simplificación básica - podría mejorarse con una biblioteca HTML
-                description = re.sub(r'<[^>]+>', ' ', html_content)
-                description = re.sub(r'\s+', ' ', description).strip()
+                description = re.sub(r"<[^>]+>", " ", html_content)
+                description = re.sub(r"\s+", " ", description).strip()
 
         # Si no hay descripción, intentamos usar las propiedades
         if not description and "properties" in item_data:
@@ -124,7 +119,7 @@ class AliexpressScraper(ScraperInterface):
             return Decimal(str(price_str))
 
         if isinstance(price_str, str):
-            match = re.search(r'(\d+(?:\.\d+)?)', price_str.replace(",", ""))
+            match = re.search(r"(\d+(?:\.\d+)?)", price_str.replace(",", ""))
             if match:
                 try:
                     return Decimal(match.group(1))
@@ -192,7 +187,7 @@ class AliexpressScraper(ScraperInterface):
                 "name": product_title,
                 "images": variant_images,
                 "variant_key": variant_key,
-                "attributes": attributes
+                "attributes": attributes,
             }
 
             variants.append(variant_info)
@@ -207,18 +202,13 @@ class AliexpressScraper(ScraperInterface):
             prop_name = prop.get("name")
             values = {}
             for val in prop.get("values", []):
-                values[val.get("vid")] = {
-                    "name": val.get("name"),
-                    "image": val.get("image", "")
-                }
-            prop_map[prop_id] = {
-                "name": prop_name,
-                "values": values
-            }
+                values[val.get("vid")] = {"name": val.get("name"), "image": val.get("image", "")}
+            prop_map[prop_id] = {"name": prop_name, "values": values}
         return prop_map
 
-    def _process_variant_attributes(self, sku_attr: str, prop_map: Dict[int, Dict[str, Any]]) -> Tuple[
-        List[Dict[str, Any]], List[str]]:
+    def _process_variant_attributes(
+        self, sku_attr: str, prop_map: Dict[int, Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], List[str]]:
         """Procesa los atributos de una variante y extrae imágenes relacionadas."""
         attributes = []
         variant_images = []
@@ -259,10 +249,7 @@ class AliexpressScraper(ScraperInterface):
 
                     # Ignorar atributos de envío
                     if prop_info["name"] not in ignored_attributes:
-                        attributes.append({
-                            "category_name": prop_info["name"],
-                            "value": value_info["name"]
-                        })
+                        attributes.append({"category_name": prop_info["name"], "value": value_info["name"]})
 
                     # Agregar imagen de la variante si existe
                     if value_info["image"]:

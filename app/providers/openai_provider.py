@@ -1,4 +1,5 @@
 from langchain_openai import ChatOpenAI
+
 from app.providers.ai_provider_interface import AIProviderInterface
 
 
@@ -10,10 +11,7 @@ class OpenAIProvider(AIProviderInterface):
             "max_tokens": max_tokens,
         }
 
-        return ChatOpenAI(
-            model=model,
-            **model_kwargs
-        )
+        return ChatOpenAI(model=model, **model_kwargs)
 
     def supports_interleaved_files(self) -> bool:
         return True

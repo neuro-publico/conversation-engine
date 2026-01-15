@@ -2,9 +2,9 @@ from typing import Any, Dict
 
 from fastapi import Depends, HTTPException
 
+from app.externals.fal.fal_client import FalClient
 from app.requests.generate_audio_request import GenerateAudioRequest
 from app.services.audio_service_interface import AudioServiceInterface
-from app.externals.fal.fal_client import FalClient
 
 
 class AudioService(AudioServiceInterface):
@@ -22,4 +22,4 @@ class AudioService(AudioServiceInterface):
         try:
             return await self.fal_client.tts_multilingual_v2(text=request.text, fal_webhook=fal_webhook, **extra)
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Error al llamar a FAL: {str(e)}") 
+            raise HTTPException(status_code=502, detail=f"Error al llamar a FAL: {str(e)}")

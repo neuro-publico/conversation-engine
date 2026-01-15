@@ -1,6 +1,6 @@
-from decimal import Decimal
-from typing import Optional, Any
 import re
+from decimal import Decimal
+from typing import Any, Optional
 
 
 def parse_price(price_str: Any) -> Optional[Decimal]:
