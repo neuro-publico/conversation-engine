@@ -118,6 +118,7 @@ class TestMessageService:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
+    @patch("app.services.message_service.AGENT_RECOMMEND_PRODUCTS_ID", "test-recommend-agent")
     @patch("app.services.message_service.search_products")
     @patch("app.services.message_service.get_agent")
     async def test_recommend_products(
