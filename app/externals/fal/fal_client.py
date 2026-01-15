@@ -1,5 +1,5 @@
 import urllib.parse
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -36,12 +36,16 @@ class FalClient:
         payload.update(kwargs)
         return await self._post("fal-ai/elevenlabs/tts/multilingual-v2", payload, fal_webhook)
 
-    async def bytedance_omnihuman(self, image_url: str, audio_url: str, fal_webhook: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    async def bytedance_omnihuman(
+        self, image_url: str, audio_url: str, fal_webhook: Optional[str] = None, **kwargs
+    ) -> Dict[str, Any]:
         payload = {"image_url": image_url, "audio_url": audio_url}
         payload.update(kwargs)
         return await self._post("fal-ai/bytedance/omnihuman", payload, fal_webhook)
 
-    async def kling_image_to_video(self, prompt: str, image_url: str, fal_webhook: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    async def kling_image_to_video(
+        self, prompt: str, image_url: str, fal_webhook: Optional[str] = None, **kwargs
+    ) -> Dict[str, Any]:
         payload = {"prompt": prompt, "image_url": image_url}
         payload.update(kwargs)
-        return await self._post("fal-ai/kling-video/v2/master/image-to-video", payload, fal_webhook) 
+        return await self._post("fal-ai/kling-video/v2/master/image-to-video", payload, fal_webhook)

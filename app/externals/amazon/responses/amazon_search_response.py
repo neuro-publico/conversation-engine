@@ -17,17 +17,17 @@ class AmazonSearchResponse:
 
     def get_products(self) -> List[dict]:
         products = []
-        
-        for item in self.raw_response.get('data', {}).get('products', []):
-            price = self._format_price(item.get('product_price'))
+
+        for item in self.raw_response.get("data", {}).get("products", []):
+            price = self._format_price(item.get("product_price"))
             if price is not None and price > 0:
                 product = {
                     "source": "amazon",
-                    "external_id": item.get('asin', ''),
-                    "name": item.get('product_title', ''),
-                    "url_website": item.get('product_url', ''),
-                    "url_image": item.get('product_photo', ''),
-                    "price": price
+                    "external_id": item.get("asin", ""),
+                    "name": item.get("product_title", ""),
+                    "url_website": item.get("product_url", ""),
+                    "url_image": item.get("product_photo", ""),
+                    "price": price,
                 }
                 products.append(product)
 
@@ -37,6 +37,6 @@ class AmazonSearchResponse:
         if not price:
             return None
         try:
-            return float(str(price).replace('$', '').replace(',', ''))
+            return float(str(price).replace("$", "").replace(",", ""))
         except (ValueError, TypeError):
             return None

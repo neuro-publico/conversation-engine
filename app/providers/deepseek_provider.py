@@ -1,6 +1,7 @@
 from langchain_community.llms.ollama import Ollama
-from app.providers.ai_provider_interface import AIProviderInterface
+
 from app.configurations.config import DEEP_SEEK_HOST
+from app.providers.ai_provider_interface import AIProviderInterface
 
 
 class DeepseekProvider(AIProviderInterface):
@@ -11,11 +12,7 @@ class DeepseekProvider(AIProviderInterface):
             "max_tokens": max_tokens,
         }
 
-        return Ollama(
-            model=model,
-            base_url=DEEP_SEEK_HOST
-                     ** model_kwargs
-        )
+        return Ollama(model=model, base_url=DEEP_SEEK_HOST**model_kwargs)
 
     def supports_interleaved_files(self) -> bool:
         return False

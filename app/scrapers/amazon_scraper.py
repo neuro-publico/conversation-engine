@@ -1,12 +1,12 @@
+import re
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
 from fastapi import HTTPException
 
+from app.externals.amazon.amazon_client import get_product_details
 from app.scrapers.helper_price import parse_price
 from app.scrapers.scraper_interface import ScraperInterface
-from typing import Dict, Any, List, Optional
-import re
-from app.externals.amazon.amazon_client import get_product_details
-from decimal import Decimal
-from typing import Dict, Any
 
 
 class AmazonScraper(ScraperInterface):
@@ -24,26 +24,19 @@ class AmazonScraper(ScraperInterface):
                 "name": self._get_name(product_data),
                 "description": self._get_description(product_data),
                 "external_sell_price": self._get_price(product_data),
-                "images": self._get_images(product_data)
+                "images": self._get_images(product_data),
             }
 
             variants = self._extract_variants(product_data)
             if variants:
                 result["variants"] = variants
 
-            response = {
-                "provider_id": "amazon",
-                "external_id": asin,
-                **result
-            }
+            response = {"provider_id": "amazon", "external_id": asin, **result}
 
             return {"data": response}
 
         except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Error processing product data: {str(e)}"
-            )
+            raise HTTPException(status_code=400, detail=f"Error processing product data: {str(e)}")
 
     def _get_product_data(self, response: Dict[str, Any]) -> Dict[str, Any]:
         product_data = response.get("data", {})
@@ -94,11 +87,11 @@ class AmazonScraper(ScraperInterface):
 
     def _extract_asin(self, url: str) -> str:
         patterns = [
-            r'/dp/([A-Z0-9]{10})',
-            r'/gp/product/([A-Z0-9]{10})',
-            r'/ASIN/([A-Z0-9]{10})',
-            r'asin=([A-Z0-9]{10})',
-            r'asin%3D([A-Z0-9]{10})'
+            r"/dp/([A-Z0-9]{10})",
+            r"/gp/product/([A-Z0-9]{10})",
+            r"/ASIN/([A-Z0-9]{10})",
+            r"asin=([A-Z0-9]{10})",
+            r"asin%3D([A-Z0-9]{10})",
         ]
 
         for pattern in patterns:
@@ -106,10 +99,7 @@ class AmazonScraper(ScraperInterface):
             if match:
                 return match.group(1)
 
-        raise HTTPException(
-            status_code=400,
-            detail="Product not found - Invalid Amazon URL"
-        )
+        raise HTTPException(status_code=400, detail="Product not found - Invalid Amazon URL")
 
     def _extract_variants(self, product_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         dimensions = product_data.get("product_variations_dimensions", [])
@@ -132,7 +122,7 @@ class AmazonScraper(ScraperInterface):
                 "name": product_title,
                 "images": self._get_variant_images(dimensions, variations, variant_data, product_data),
                 "variant_key": variant_key,
-                "attributes": variant_attributes
+                "attributes": variant_attributes,
             }
 
             variants.append(variant_info)
@@ -144,15 +134,17 @@ class AmazonScraper(ScraperInterface):
 
         for dim in dimensions:
             if dim in variant_data:
-                attributes.append({
-                    "category_name": dim.capitalize(),
-                    "value": variant_data[dim]
-                })
+                attributes.append({"category_name": dim.capitalize(), "value": variant_data[dim]})
 
         return attributes
 
-    def _get_variant_images(self, dimensions: List[str], variations: Dict[str, List],
-                            variant_data: Dict[str, str], product_data: Dict[str, Any]) -> List[str]:
+    def _get_variant_images(
+        self,
+        dimensions: List[str],
+        variations: Dict[str, List],
+        variant_data: Dict[str, str],
+        product_data: Dict[str, Any],
+    ) -> List[str]:
         images = []
         for dim in dimensions:
             if dim in variations and dim in variant_data:
