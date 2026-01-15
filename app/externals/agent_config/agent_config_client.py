@@ -6,9 +6,9 @@ from app.externals.agent_config.responses.agent_config_response import AgentConf
 
 
 async def get_agent(data: AgentConfigRequest) -> AgentConfigResponse:
-    endpoint = '/api/ms/agent/config/search-agent'
+    endpoint = "/api/ms/agent/config/search-agent"
     url = f"{HOST_AGENT_CONFIG}{endpoint}"
-    headers = {'Content-Type': 'application/json'}
+    headers = {"Content-Type": "application/json"}
 
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=data.model_dump(), headers=headers)

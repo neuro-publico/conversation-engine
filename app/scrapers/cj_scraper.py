@@ -1,8 +1,9 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 import httpx
-from app.scrapers.scraper_interface import ScraperInterface
 from fastapi import HTTPException
+
+from app.scrapers.scraper_interface import ScraperInterface
 
 
 class CJScraper(ScraperInterface):
@@ -13,21 +14,13 @@ class CJScraper(ScraperInterface):
         return {}
 
     async def scrape(self, url: str, domain: str = None) -> dict:
-        payload = {
-            "url_cj": url
-        }
+        payload = {"url_cj": url}
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
 
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
-                response = await client.post(
-                    self.webhook_url,
-                    headers=headers,
-                    json=payload
-                )
+                response = await client.post(self.webhook_url, headers=headers, json=payload)
 
             if response.status_code == 200:
                 return response.json()

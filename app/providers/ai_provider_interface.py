@@ -4,8 +4,8 @@ from typing import Any, Protocol
 
 class BaseChatModel(Protocol):
     """Protocol for chat models"""
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        ...
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class AIProviderInterface(ABC):

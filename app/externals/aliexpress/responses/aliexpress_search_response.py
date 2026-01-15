@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 
@@ -11,9 +12,7 @@ class ItemSku(BaseModel):
     def_: Optional[SkuDef] = None
 
     class Config:
-        fields = {
-            'def_': 'def'
-        }
+        fields = {"def_": "def"}
 
 
 class ItemData(BaseModel):
@@ -48,24 +47,25 @@ class AliexpressSearchResponse(BaseModel):
         for result_item in self.result.resultList:
             price = None
             if result_item.item.sku and result_item.item.sku.def_:
-                price = (result_item.item.sku.def_.price or
-                         result_item.item.sku.def_.promotionPrice)
+                price = result_item.item.sku.def_.price or result_item.item.sku.def_.promotionPrice
 
             item_url = result_item.item.itemUrl
-            if item_url.startswith('//'):
+            if item_url.startswith("//"):
                 item_url = f"https:{item_url}"
 
             image_url = result_item.item.image
-            if image_url.startswith('//'):
+            if image_url.startswith("//"):
                 image_url = f"https:{image_url}"
 
-            products.append({
-                'source': 'aliexpress',
-                'external_id': result_item.item.itemId,
-                'name': result_item.item.title,
-                'url_website': item_url,
-                'url_image': image_url,
-                'price': price
-            })
+            products.append(
+                {
+                    "source": "aliexpress",
+                    "external_id": result_item.item.itemId,
+                    "name": result_item.item.title,
+                    "url_website": item_url,
+                    "url_image": image_url,
+                    "price": price,
+                }
+            )
 
         return products

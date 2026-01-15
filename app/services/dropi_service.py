@@ -1,4 +1,5 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from fastapi import Depends, HTTPException
 
 from app.externals.dropi import dropi_client
@@ -22,4 +23,4 @@ class DropiService(DropiServiceInterface):
             response = await dropi_client.get_cities_by_department(department_id, rate_type, country)
             return response.get("objects", {}).get("cities", [])
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching cities from Dropi: {str(e)}") 
+            raise HTTPException(status_code=500, detail=f"Error fetching cities from Dropi: {str(e)}")

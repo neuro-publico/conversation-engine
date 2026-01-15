@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.variation_image_request import VariationImageRequest

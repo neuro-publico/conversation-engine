@@ -1,11 +1,11 @@
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
+from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
+from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.message_request import MessageRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
-from app.requests.brand_context_resolver_request import BrandContextResolverRequest
-from app.requests.generate_pdf_request import GeneratePdfRequest
 
 
 class MessageServiceInterface(ABC):

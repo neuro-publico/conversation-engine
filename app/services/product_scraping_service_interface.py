@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from app.requests.product_scraping_request import ProductScrapingRequest
 
 

@@ -10,11 +10,11 @@ class AIProviderFactory:
     def get_provider(provider_name: str) -> AIProviderInterface:
         if provider_name == "openai":
             return OpenAIProvider()
-        elif  provider_name == "claude":
+        elif provider_name == "claude":
             return AnthropicProvider()
-        elif  provider_name == "deepseek":
+        elif provider_name == "deepseek":
             return DeepseekProvider()
-        elif  provider_name == "gemini":
+        elif provider_name == "gemini":
             return GeminiProvider()
         else:
             raise ValueError(f"El proveedor de AI '{provider_name}' no está implementado")
