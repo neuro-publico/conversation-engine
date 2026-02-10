@@ -39,7 +39,7 @@ async def get_product_details(asin: str, country: str = "US") -> Dict[str, Any]:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            "https://real-time-amazon-data.p.rapidapi.com/product-details", headers=headers, params=params
+            "https://real-time-amazon-data.p.rapidapi.com/product-details", headers=headers, params=params, timeout=20.0
         )
 
         if response.status_code != 200:
