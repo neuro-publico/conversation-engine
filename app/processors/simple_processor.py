@@ -73,9 +73,7 @@ class SimpleProcessor(ConversationProcessor):
             query_with_urls = request.query
             if image_urls:
                 urls_list = "\n".join([f"{i+1}. {url}" for i, url in enumerate(image_urls)])
-                query_with_urls += (
-                    f"\n\nIMPORTANT: You must respond with ONE of these exact URLs, do not invent or modify URLs:\n{urls_list}"
-                )
+                query_with_urls += f"\n\nIMPORTANT: You must respond with ONE of these exact URLs, do not invent or modify URLs:\n{urls_list}"
 
             content_blocks = [{"type": "text", "text": query_with_urls}]
             for file in files:
