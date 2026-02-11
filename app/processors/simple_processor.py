@@ -68,16 +68,14 @@ class SimpleProcessor(ConversationProcessor):
 
         # Si hay archivos y el provider soporta content blocks, enviarlos correctamente
         if files and supports_interleaved_files:
-            # Incluir las URLs como texto para que el modelo las tenga como referencia
+            # Agregar las URLs como referencia en el texto
             image_urls = [file["url"] for file in files if file.get("type") == "image" and file.get("url")]
-            query_with_urls = request.query
+            query_text = request.query
             if image_urls:
                 urls_list = "\n".join([f"{i+1}. {url}" for i, url in enumerate(image_urls)])
-                query_with_urls += (
-                    f"\n\nIMPORTANT: You must respond with ONE of these exact URLs, do not invent or modify URLs:\n{urls_list}"
-                )
+                query_text += f"\n\nAttached image URLs:\n{urls_list}"
 
-            content_blocks = [{"type": "text", "text": query_with_urls}]
+            content_blocks = [{"type": "text", "text": query_text}]
             for file in files:
                 file_type = file.get("type", "file")
                 if file_type == "image":
