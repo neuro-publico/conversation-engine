@@ -63,16 +63,29 @@ class SimpleProcessor(ConversationProcessor):
                 "Do NOT include markdown, explanations, or anything else besides the JSON."
             )
 
-        if files and supports_interleaved_files:
-            interleaved_references = []
-            for file in files:
-                tag = "image" if file.get("type") == "image" else "file"
-                interleaved_references.append(f"<{tag} url='{file['url']}'></{tag}>")
-            system_message += "\n\n" + "\n".join(interleaved_references)
-
         messages.append(SystemMessage(content=system_message))
         messages.append(MessagesPlaceholder(variable_name="chat_history"))
-        messages.append(HumanMessage(content=request.query))
+
+        # Si hay archivos y el provider soporta content blocks, enviarlos correctamente
+        if files and supports_interleaved_files:
+            # Agregar las URLs como referencia en el texto
+            image_urls = [file["url"] for file in files if file.get("type") == "image" and file.get("url")]
+            query_text = request.query
+            if image_urls:
+                urls_list = "\n".join([f"{i+1}. {url}" for i, url in enumerate(image_urls)])
+                query_text += f"\n\nAttached image URLs:\n{urls_list}"
+
+            content_blocks = [{"type": "text", "text": query_text}]
+            for file in files:
+                file_type = file.get("type", "file")
+                if file_type == "image":
+                    # Formato OpenAI: type=image_url con nested image_url.url
+                    content_blocks.append({"type": "image_url", "image_url": {"url": file["url"]}})
+                else:
+                    content_blocks.append({"type": "file", "url": file["url"]})
+            messages.append(HumanMessage(content=content_blocks))
+        else:
+            messages.append(HumanMessage(content=request.query))
 
         prompt = ChatPromptTemplate.from_messages(messages)
 
