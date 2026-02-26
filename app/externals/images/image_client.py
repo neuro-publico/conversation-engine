@@ -101,7 +101,7 @@ async def google_image(
     aspect_ratio = extra_params.get("aspect_ratio", "1:1")
     image_size = extra_params.get("image_size", "1K")
 
-    model_name = "gemini-2.5-flash-image-preview" if is_model_25 else "gemini-3-pro-image-preview"
+    model_name = "gemini-2.5-flash-image-preview" if is_model_25 else "gemini-3.1-flash-image-preview"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
 
     parts = [{"text": prompt}]
