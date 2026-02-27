@@ -15,4 +15,5 @@ class GenerateImageRequest(BaseModel):
     num_variations: int = 4
     parameter_prompt: Optional[Dict[str, Any]] = None
     extra_parameters: Optional[Dict[str, Any]] = None
+    image_format: Optional[str] = None
     language: Optional[str] = "es"
