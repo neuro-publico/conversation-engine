@@ -82,7 +82,7 @@ class ConversationManager(ConversationManagerInterface):
     ) -> dict[str, Any]:
         anthropic_provider = AIProviderFactory.get_provider("claude")
         anthropic_llm = anthropic_provider.get_llm(
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-4-6",
             temperature=agent_config.preferences.temperature,
             max_tokens=agent_config.preferences.max_tokens,
             top_p=agent_config.preferences.top_p,
