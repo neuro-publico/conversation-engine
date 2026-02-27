@@ -5,7 +5,7 @@ from app.providers.ai_provider_interface import AIProviderInterface
 
 
 class DeepseekProvider(AIProviderInterface):
-    def get_llm(self, model: str, temperature: float, max_tokens: int, top_p: float) -> Ollama:
+    def get_llm(self, model: str, temperature: float, max_tokens: int, top_p: float = None) -> Ollama:
         model_kwargs = {
             "top_p": top_p,
             "temperature": temperature,

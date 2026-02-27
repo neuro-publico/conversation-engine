@@ -81,11 +81,11 @@ class TestAnthropicProvider:
         mock_instance = MagicMock()
         mock_chat_anthropic.return_value = mock_instance
 
-        result = provider.get_llm(model="claude-3-opus-20240229", temperature=0.7, max_tokens=1000, top_p=0.9)
+        result = provider.get_llm(model="claude-3-opus-20240229", temperature=0.7, max_tokens=1000)
 
         assert result == mock_instance
         mock_chat_anthropic.assert_called_once_with(
-            model="claude-3-opus-20240229", temperature=0.7, max_tokens=1000, top_p=0.9
+            model="claude-3-opus-20240229", temperature=0.7, max_tokens=1000
         )
 
 

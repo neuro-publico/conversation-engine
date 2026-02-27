@@ -10,7 +10,7 @@ class BaseChatModel(Protocol):
 
 class AIProviderInterface(ABC):
     @abstractmethod
-    def get_llm(self, model: str, temperature: float, max_tokens: int, top_p: float) -> BaseChatModel:
+    def get_llm(self, model: str, temperature: float, max_tokens: int, top_p: float = None) -> BaseChatModel:
         """
         Retorna el modelo de lenguaje configurado
         """

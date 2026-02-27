@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 class AgentPreferences(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 1000
-    top_p: float = 1.0
     extra_parameters: Optional[Dict[str, Any]] = None
 
 

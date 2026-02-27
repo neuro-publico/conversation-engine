@@ -27,7 +27,6 @@ class ConversationManager(ConversationManagerInterface):
             model=agent_config.model_ai,
             temperature=agent_config.preferences.temperature,
             max_tokens=agent_config.preferences.max_tokens,
-            top_p=agent_config.preferences.top_p,
         )
 
         history = self.get_conversation_history(request.conversation_id)
@@ -85,7 +84,6 @@ class ConversationManager(ConversationManagerInterface):
             model="claude-sonnet-4-6",
             temperature=agent_config.preferences.temperature,
             max_tokens=agent_config.preferences.max_tokens,
-            top_p=agent_config.preferences.top_p,
         )
 
         processor = SimpleProcessor(anthropic_llm, agent_config.prompt, history)
