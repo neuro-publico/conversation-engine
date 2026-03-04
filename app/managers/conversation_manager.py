@@ -103,8 +103,7 @@ class ConversationManager(ConversationManagerInterface):
         }
 
     async def _try_provider(
-        self, provider_name: str, model: str, agent_config: AgentConfigResponse,
-        request: MessageRequest, history: list
+        self, provider_name: str, model: str, agent_config: AgentConfigResponse, request: MessageRequest, history: list
     ) -> dict[str, Any]:
         provider = AIProviderFactory.get_provider(provider_name)
         llm = provider.get_llm(
@@ -126,7 +125,9 @@ class ConversationManager(ConversationManagerInterface):
         last_error = None
         for attempt in range(max_retries):
             try:
-                logger.info(f"Retry {attempt + 1}/{max_retries} with {agent_config.provider_ai}/{agent_config.model_ai}")
+                logger.info(
+                    f"Retry {attempt + 1}/{max_retries} with {agent_config.provider_ai}/{agent_config.model_ai}"
+                )
                 return await self._try_provider(
                     agent_config.provider_ai, agent_config.model_ai, agent_config, request, history
                 )
@@ -138,8 +139,7 @@ class ConversationManager(ConversationManagerInterface):
         try:
             logger.info(f"Primary fallback: {fc['primary_fallback_provider']}/{fc['primary_fallback_model']}")
             return await self._try_provider(
-                fc["primary_fallback_provider"], fc["primary_fallback_model"],
-                agent_config, request, history
+                fc["primary_fallback_provider"], fc["primary_fallback_model"], agent_config, request, history
             )
         except Exception as e:
             logger.warning(f"Primary fallback failed: {e}")
@@ -148,8 +148,7 @@ class ConversationManager(ConversationManagerInterface):
         try:
             logger.info(f"Secondary fallback: {fc['secondary_fallback_provider']}/{fc['secondary_fallback_model']}")
             return await self._try_provider(
-                fc["secondary_fallback_provider"], fc["secondary_fallback_model"],
-                agent_config, request, history
+                fc["secondary_fallback_provider"], fc["secondary_fallback_model"], agent_config, request, history
             )
         except Exception as e:
             logger.error(f"Secondary fallback also failed: {e}")
