@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import logging
 import uuid
 from typing import Optional
 
@@ -24,6 +25,8 @@ from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class ImageService(ImageServiceInterface):
@@ -54,20 +57,55 @@ class ImageService(ImageServiceInterface):
         extra_params: Optional[dict] = None,
         provider: Optional[str] = None,
         model_ai: Optional[str] = None,
+        fallback_config: Optional[dict] = None,
     ) -> str:
+        fc = fallback_config or {}
+        max_retries = fc.get("image_max_retries", 5)
+        delay_after = fc.get("image_retry_delay_after", 3)
+        delay_seconds = fc.get("image_retry_delay_seconds", 5)
+        fb_provider = fc.get("image_fallback_provider", "openai")
+        fb_model = fc.get("image_fallback_model", "gpt-image-1")
 
-        if provider and provider.lower() == "openai":
-            image_content = await openai_image_edit(
-                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
-            )
-        else:
-            image_content = await google_image(
-                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
-            )
+        last_error = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                if attempt > delay_after:
+                    await asyncio.sleep(delay_seconds)
 
-        content_base64 = base64.b64encode(image_content).decode("utf-8")
-        final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-        return final_upload.s3_url
+                if provider and provider.lower() == "openai":
+                    image_content = await openai_image_edit(
+                        image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                    )
+                else:
+                    image_content = await google_image(
+                        image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                    )
+
+                content_base64 = base64.b64encode(image_content).decode("utf-8")
+                final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
+                return final_upload.s3_url
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
+
+        # Fallback to another provider
+        try:
+            logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
+            if fb_provider.lower() == "openai":
+                image_content = await openai_image_edit(
+                    image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                )
+            else:
+                image_content = await google_image(
+                    image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                )
+
+            content_base64 = base64.b64encode(image_content).decode("utf-8")
+            final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
+            return final_upload.s3_url
+        except Exception as e:
+            logger.error(f"Image fallback also failed: {e}")
+            raise last_error
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
@@ -90,6 +128,10 @@ class ImageService(ImageServiceInterface):
         if agent_config.preferences.extra_parameters:
             extra_params = agent_config.preferences.extra_parameters
 
+        fallback_config = None
+        if agent_config.metadata and "fallback_config" in agent_config.metadata:
+            fallback_config = agent_config.metadata["fallback_config"]
+
         prompt = response["text"] + " Do not modify any text, letters, brand logos, brand names, or symbols."
         tasks = [
             self._generate_single_variation(
@@ -101,6 +143,7 @@ class ImageService(ImageServiceInterface):
                 extra_params,
                 provider=agent_config.provider_ai,
                 model_ai=agent_config.model_ai,
+                fallback_config=fallback_config,
             )
             for i in range(request.num_variations)
         ]
@@ -114,7 +157,9 @@ class ImageService(ImageServiceInterface):
             vision_analysis=vision_analysis,
         )
 
-    async def generate_images_from(self, request: GenerateImageRequest, owner_id: str):
+    async def generate_images_from(
+        self, request: GenerateImageRequest, owner_id: str, fallback_config: Optional[dict] = None
+    ):
         folder_id = uuid.uuid4().hex[:8]
         urls = request.file_urls or []
         original_url = request.file_url
@@ -136,6 +181,7 @@ class ImageService(ImageServiceInterface):
                 extra_params=request.extra_parameters,
                 provider=request.provider,
                 model_ai=request.model_ai,
+                fallback_config=fallback_config,
             )
             for i in range(request.num_variations)
         ]
@@ -170,6 +216,10 @@ class ImageService(ImageServiceInterface):
         if agent_config.preferences.extra_parameters:
             request.extra_parameters = agent_config.preferences.extra_parameters
 
-        response = await self.generate_images_from(request, owner_id)
+        fallback_config = None
+        if agent_config.metadata and "fallback_config" in agent_config.metadata:
+            fallback_config = agent_config.metadata["fallback_config"]
+
+        response = await self.generate_images_from(request, owner_id, fallback_config=fallback_config)
 
         return response

@@ -47,3 +47,4 @@ class AgentConfigResponse(BaseModel):
     preferences: AgentPreferences
     tools: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     mcp_config: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
