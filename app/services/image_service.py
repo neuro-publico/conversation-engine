@@ -160,6 +160,13 @@ class ImageService(ImageServiceInterface):
     async def generate_images_from(
         self, request: GenerateImageRequest, owner_id: str, fallback_config: Optional[dict] = None
     ):
+        FORMAT_TO_OPENAI_SIZE = {
+            "9:16": "1024x1536",
+            "1:1": "1024x1024",
+            "4:5": "1024x1536",
+            "16:9": "1536x1024",
+        }
+
         folder_id = uuid.uuid4().hex[:8]
         urls = request.file_urls or []
         original_url = request.file_url
@@ -171,6 +178,12 @@ class ImageService(ImageServiceInterface):
         if len(urls) == 0 and original_url:
             urls.append(request.file_url)
 
+        extra_parameters = request.extra_parameters or {}
+        if request.image_format:
+            extra_parameters["aspect_ratio"] = request.image_format
+            if request.image_format in FORMAT_TO_OPENAI_SIZE:
+                extra_parameters["resolution"] = FORMAT_TO_OPENAI_SIZE[request.image_format]
+
         tasks = [
             self._generate_single_variation(
                 urls,
@@ -178,7 +191,7 @@ class ImageService(ImageServiceInterface):
                 owner_id,
                 folder_id,
                 request.file,
-                extra_params=request.extra_parameters,
+                extra_params=extra_parameters,
                 provider=request.provider,
                 model_ai=request.model_ai,
                 fallback_config=fallback_config,
