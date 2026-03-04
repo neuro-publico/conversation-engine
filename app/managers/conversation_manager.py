@@ -1,3 +1,5 @@
+import logging
+import os
 from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
@@ -9,6 +11,8 @@ from app.processors.mcp_processor import MCPProcessor
 from app.processors.simple_processor import SimpleProcessor
 from app.requests.message_request import MessageRequest
 from app.tools.tool_generator import ToolGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationManager(ConversationManagerInterface):
@@ -47,7 +51,7 @@ class ConversationManager(ConversationManagerInterface):
             response_data = await processor.process(request, request.files, ai_provider.supports_interleaved_files())
         except Exception as e:
             if is_simple:
-                response_data = await self._fallback_with_anthropic(request, agent_config, history)
+                response_data = await self._fallback_processing(request, agent_config, history)
             else:
                 raise e
 
@@ -77,17 +81,75 @@ class ConversationManager(ConversationManagerInterface):
         if len(current_conv_history) > self.max_history_length:
             self.history_store[conversation_id] = current_conv_history[-self.max_history_length :]
 
-    async def _fallback_with_anthropic(
-        self, request: MessageRequest, agent_config: AgentConfigResponse, history: list
+    def _get_fallback_config(self, agent_config: AgentConfigResponse) -> dict:
+        fc = {}
+        if agent_config.metadata and "fallback_config" in agent_config.metadata:
+            fc = agent_config.metadata["fallback_config"]
+
+        return {
+            "max_retries": fc.get("max_retries", int(os.getenv("FALLBACK_MAX_RETRIES", "1"))),
+            "primary_fallback_provider": fc.get(
+                "primary_fallback_provider", os.getenv("FALLBACK_PRIMARY_PROVIDER", "gemini")
+            ),
+            "primary_fallback_model": fc.get(
+                "primary_fallback_model", os.getenv("FALLBACK_PRIMARY_MODEL", "gemini-flash-latest")
+            ),
+            "secondary_fallback_provider": fc.get(
+                "secondary_fallback_provider", os.getenv("FALLBACK_SECONDARY_PROVIDER", "claude")
+            ),
+            "secondary_fallback_model": fc.get(
+                "secondary_fallback_model", os.getenv("FALLBACK_SECONDARY_MODEL", "claude-sonnet-4-6")
+            ),
+        }
+
+    async def _try_provider(
+        self, provider_name: str, model: str, agent_config: AgentConfigResponse, request: MessageRequest, history: list
     ) -> dict[str, Any]:
-        anthropic_provider = AIProviderFactory.get_provider("claude")
-        anthropic_llm = anthropic_provider.get_llm(
-            model="claude-3-7-sonnet-20250219",
+        provider = AIProviderFactory.get_provider(provider_name)
+        llm = provider.get_llm(
+            model=model,
             temperature=agent_config.preferences.temperature,
             max_tokens=agent_config.preferences.max_tokens,
             top_p=agent_config.preferences.top_p,
         )
+        processor = SimpleProcessor(llm, agent_config.prompt, history)
+        return await processor.process(request, request.files, provider.supports_interleaved_files())
 
-        processor = SimpleProcessor(anthropic_llm, agent_config.prompt, history)
+    async def _fallback_processing(
+        self, request: MessageRequest, agent_config: AgentConfigResponse, history: list
+    ) -> dict[str, Any]:
+        fc = self._get_fallback_config(agent_config)
 
-        return await processor.process(request, request.files, anthropic_provider.supports_interleaved_files())
+        # Retry with primary model
+        max_retries = fc["max_retries"]
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    f"Retry {attempt + 1}/{max_retries} with {agent_config.provider_ai}/{agent_config.model_ai}"
+                )
+                return await self._try_provider(
+                    agent_config.provider_ai, agent_config.model_ai, agent_config, request, history
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Retry {attempt + 1}/{max_retries} failed: {e}")
+
+        # Primary fallback
+        try:
+            logger.info(f"Primary fallback: {fc['primary_fallback_provider']}/{fc['primary_fallback_model']}")
+            return await self._try_provider(
+                fc["primary_fallback_provider"], fc["primary_fallback_model"], agent_config, request, history
+            )
+        except Exception as e:
+            logger.warning(f"Primary fallback failed: {e}")
+
+        # Secondary fallback
+        try:
+            logger.info(f"Secondary fallback: {fc['secondary_fallback_provider']}/{fc['secondary_fallback_model']}")
+            return await self._try_provider(
+                fc["secondary_fallback_provider"], fc["secondary_fallback_model"], agent_config, request, history
+            )
+        except Exception as e:
+            logger.error(f"Secondary fallback also failed: {e}")
+            raise last_error or e

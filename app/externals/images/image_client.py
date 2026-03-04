@@ -97,11 +97,17 @@ async def google_image(
     if extra_params is None:
         extra_params = {}
 
-    is_model_25 = model_ia and "2.5" in model_ia
+    # Use configured model if it's an image model, otherwise default
+    # This preserves backward compat: existing agents with text model names
+    # (e.g. "gemini-2.5-pro") will keep using the current default
+    if model_ia and "image" in model_ia.lower():
+        model_name = model_ia
+    else:
+        model_name = "gemini-3-pro-image-preview"
+
+    is_model_25 = "2.5" in model_name
     aspect_ratio = extra_params.get("aspect_ratio", "1:1")
     image_size = extra_params.get("image_size", "1K")
-
-    model_name = "gemini-2.5-flash-image-preview" if is_model_25 else "gemini-3-pro-image-preview"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
 
     parts = [{"text": prompt}]
@@ -168,7 +174,7 @@ async def openai_image_edit(
 
     data.add_field("size", size)
     data.add_field("prompt", prompt)
-    data.add_field("model", "gpt-image-1")
+    data.add_field("model", model_ia or "gpt-image-1")
     data.add_field("n", "1")
 
     try:
