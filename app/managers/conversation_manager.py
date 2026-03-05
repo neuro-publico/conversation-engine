@@ -34,6 +34,11 @@ class ConversationManager(ConversationManagerInterface):
             top_p=agent_config.preferences.top_p,
         )
 
+        # Bind native model tools from extra_parameters
+        extra = agent_config.preferences.extra_parameters or {}
+        if extra.get("google_search") in (True, "true") and agent_config.provider_ai == "gemini":
+            llm = llm.bind(tools=[{"google_search": {}}])
+
         history = self.get_conversation_history(request.conversation_id)
         is_simple = False
 
