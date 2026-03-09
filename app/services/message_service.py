@@ -3,6 +3,7 @@ import hashlib
 import json
 
 from fastapi import Depends
+from json_repair import repair_json
 
 from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID, ENVIRONMENT
 from app.configurations.copies_config import AGENT_COPIES
@@ -60,7 +61,10 @@ class MessageService(MessageServiceInterface):
     async def handle_message_json(self, request: MessageRequest):
         response = await self.handle_message(request)
 
-        return json.loads(response["text"])
+        try:
+            return json.loads(response["text"])
+        except json.JSONDecodeError:
+            return json.loads(repair_json(response["text"]))
 
     async def recommend_products(self, request: RecommendProductRequest):
         agent_id = AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID if request.similar else AGENT_RECOMMEND_PRODUCTS_ID
