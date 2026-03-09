@@ -2,9 +2,8 @@ import asyncio
 import hashlib
 import json
 
-from json_repair import repair_json
-
 from fastapi import Depends
+from json_repair import repair_json
 
 from app.configurations.config import AGENT_RECOMMEND_PRODUCTS_ID, AGENT_RECOMMEND_SIMILAR_PRODUCTS_ID, ENVIRONMENT
 from app.configurations.copies_config import AGENT_COPIES
