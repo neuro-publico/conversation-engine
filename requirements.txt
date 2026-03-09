@@ -22,6 +22,7 @@ html5lib
 requests
 langsmith
 aiohttp
+json-repair>=0.58.0
 
 # Testing
 pytest>=8.0.0
