@@ -155,7 +155,7 @@ class TestAgentPreferences:
         prefs = AgentPreferences()
 
         assert prefs.temperature == 0.7
-        assert prefs.max_tokens == 1000
+        assert prefs.max_tokens == 4096
         assert prefs.top_p == 1.0
         assert prefs.extra_parameters is None
 
