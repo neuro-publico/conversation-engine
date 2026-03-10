@@ -145,6 +145,16 @@ async def scrape_product(
     return response
 
 
+@router.post("/scrape-product/api-key")
+@require_api_key
+async def scrape_product_api_key(
+    request: Request, scraping_request: ProductScrapingRequest, service: ProductScrapingServiceInterface = Depends()
+):
+    """Misma lógica que scrape-product pero con x-api-key para pruebas en local."""
+    response = await service.scrape_product(scraping_request)
+    return response
+
+
 @router.post("/scrape-direct-html")
 @require_auth
 async def scrape_product_direct(

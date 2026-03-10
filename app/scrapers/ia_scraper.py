@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
+from json_repair import repair_json
+
 from app.configurations.config import SCRAPER_AGENT, SCRAPER_AGENT_DIRECT
 from app.externals.scraperapi.scraperapi_client import ScraperAPIClient
 from app.helpers.escape_helper import clean_html_deeply, clean_html_less_deeply
@@ -76,8 +78,12 @@ class IAScraper(ScraperInterface):
 
         result = await self.message_service.handle_message(message_request)
         data_clean = clean_text(clean_json(result["text"]))
-        data = json.loads(data_clean)
-        data["data"]["external_sell_price"] = parse_price(data["data"]["external_sell_price"])
+        try:
+            data = json.loads(data_clean)
+        except json.JSONDecodeError:
+            data = json.loads(repair_json(data_clean))
+        if "external_sell_price" in data.get("data", {}):
+            data["data"]["external_sell_price"] = parse_price(data["data"]["external_sell_price"])
         images = data["data"].get("images", [])
         cleaned_images = [f"https:{img}" if img.startswith("//") else img for img in images]
         data["data"]["images"] = cleaned_images
