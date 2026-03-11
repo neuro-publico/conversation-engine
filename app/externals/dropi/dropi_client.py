@@ -14,8 +14,7 @@ def _parse_json_response(response: httpx.Response) -> Dict[str, Any]:
     text = response.text
     if not text or not text.strip():
         raise Exception(
-            f"Dropi API returned empty body (status {response.status_code}). "
-            "Check URL and API key for this country."
+            f"Dropi API returned empty body (status {response.status_code}). " "Check URL and API key for this country."
         )
     try:
         return json.loads(text)
