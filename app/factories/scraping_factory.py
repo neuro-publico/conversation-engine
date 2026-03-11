@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 
 from fastapi import Depends
 
+from app.scrapers.alibaba_scraper import AlibabaScraper
 from app.scrapers.aliexpress_scraper import AliexpressScraper
 from app.scrapers.amazon_scraper import AmazonScraper
 from app.scrapers.cj_scraper import CJScraper
@@ -20,6 +21,8 @@ class ScrapingFactory:
 
         if "amazon" in domain:
             return AmazonScraper()
+        elif "alibaba" in domain:
+            return AlibabaScraper()
         elif "aliexpress" in domain:
             return AliexpressScraper()
         elif "cjdropshipping" in domain:

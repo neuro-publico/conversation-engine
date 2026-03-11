@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
+from json_repair import repair_json
+
 from app.configurations.config import SCRAPER_AGENT, SCRAPER_AGENT_DIRECT
 from app.externals.scraperapi.scraperapi_client import ScraperAPIClient
 from app.helpers.escape_helper import clean_html_deeply, clean_html_less_deeply
@@ -62,10 +64,7 @@ class IAScraper(ScraperInterface):
 
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         client = ScraperAPIClient()
-        if domain and "alibaba" in domain:
-            html_content = await client.get_html(url)
-        else:
-            html_content = await client.get_html_lambda(url)
+        html_content = await client.get_html_lambda(url)
         simplified_html_clean = clean_html_deeply(html_content)
 
         message_request = MessageRequest(
@@ -76,8 +75,12 @@ class IAScraper(ScraperInterface):
 
         result = await self.message_service.handle_message(message_request)
         data_clean = clean_text(clean_json(result["text"]))
-        data = json.loads(data_clean)
-        data["data"]["external_sell_price"] = parse_price(data["data"]["external_sell_price"])
+        try:
+            data = json.loads(data_clean)
+        except json.JSONDecodeError:
+            data = json.loads(repair_json(data_clean))
+        if "external_sell_price" in data.get("data", {}):
+            data["data"]["external_sell_price"] = parse_price(data["data"]["external_sell_price"])
         images = data["data"].get("images", [])
         cleaned_images = [f"https:{img}" if img.startswith("//") else img for img in images]
         data["data"]["images"] = cleaned_images
