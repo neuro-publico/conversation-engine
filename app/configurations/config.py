@@ -35,7 +35,9 @@ ENVIRONMENT: str = os.getenv("ENVIRONMENT")
 OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
 
 DROPI_S3_BASE_URL: str = os.getenv("DROPI_S3_BASE_URL", "https://d39ru7awumhhs2.cloudfront.net/")
-DROPI_HOST: str = os.getenv("DROPI_HOST", "https://test-api.dropi.co")
+DROPI_HOST: str = (os.getenv("DROPI_HOST") or "https://test-api.dropi.co").rstrip("/")
+# URL base de la API por país cuando difiere del patrón. Paraguay prod: api.dropi.com.py (test: test-api.dropi.com.py). app.dropi.com.py es frontend (HTML).
+DROPI_HOST_PY: str = (os.getenv("DROPI_HOST_PY") or "https://api.dropi.com.py").rstrip("/")
 DROPI_API_KEY: str = os.getenv("DROPI_API_KEY")
 DROPI_API_KEY_CO: str = os.getenv("DROPI_API_KEY_CO", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_MX: str = os.getenv("DROPI_API_KEY_MX", os.getenv("DROPI_API_KEY"))
@@ -44,6 +46,19 @@ DROPI_API_KEY_CL: str = os.getenv("DROPI_API_KEY_CL", os.getenv("DROPI_API_KEY")
 DROPI_API_KEY_PE: str = os.getenv("DROPI_API_KEY_PE", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_PY: str = os.getenv("DROPI_API_KEY_PY", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_EC: str = os.getenv("DROPI_API_KEY_EC", os.getenv("DROPI_API_KEY"))
+# Cookie opcional para PY (algunas cuentas detrás de ALB requieren AWSALB/AWSALBCORS)
+DROPI_COOKIE_PY: str = os.getenv("DROPI_COOKIE_PY", "")
+
+
+def get_dropi_host(country: str = "co") -> str:
+    """Devuelve la URL base de la API Dropi para el país. PY usa api.dropi.com.py (prod)."""
+    c = (country or "co").lower()
+    if c == "py":
+        # Evita una configuración frecuente: app.dropi.com.py es frontend (HTML), no API.
+        if "://app.dropi.com.py" in DROPI_HOST_PY:
+            return DROPI_HOST_PY.replace("://app.dropi.com.py", "://api.dropi.com.py")
+        return DROPI_HOST_PY
+    return DROPI_HOST.replace(".co", f".{c}")
 
 
 def get_dropi_api_key(country: str = "co") -> str:
