@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict
@@ -7,17 +8,21 @@ from json_repair import repair_json
 
 from app.configurations.config import SCRAPER_AGENT, SCRAPER_AGENT_DIRECT
 from app.externals.scraperapi.scraperapi_client import ScraperAPIClient
-from app.helpers.escape_helper import clean_html_deeply, clean_html_less_deeply
+from app.helpers.escape_helper import extract_product_content
 from app.pdf.helpers import clean_json, clean_text
 from app.requests.message_request import MessageRequest
 from app.scrapers.helper_price import parse_price
 from app.scrapers.scraper_interface import ScraperInterface
 from app.services.message_service_interface import MessageServiceInterface
 
+logger = logging.getLogger(__name__)
+
 
 class IAScraper(ScraperInterface):
     async def scrape_direct(self, html: str) -> Dict[str, Any]:
-        simplified_html_clean = clean_html_deeply(html)
+        product_content = extract_product_content(html)
+        logger.info(f"scrape_direct: extracted content length={len(product_content)} chars")
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"simplified_html_{timestamp}.html"
 
@@ -25,12 +30,12 @@ class IAScraper(ScraperInterface):
 
         filepath = os.path.join("scraped_html", filename)
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write(simplified_html_clean)
+            f.write(product_content)
 
-        print(f"HTML simplificado guardado en: {filepath}")
+        logger.info(f"HTML simplificado guardado en: {filepath}")
 
         message_request = MessageRequest(
-            query=f"Product content: {simplified_html_clean} ",
+            query=f"Product content: {product_content} ",
             agent_id=SCRAPER_AGENT_DIRECT,
             conversation_id="",
             json_parser={"code": "string"},
@@ -65,10 +70,11 @@ class IAScraper(ScraperInterface):
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         client = ScraperAPIClient()
         html_content = await client.get_html_lambda(url)
-        simplified_html_clean = clean_html_deeply(html_content)
+        product_content = extract_product_content(html_content)
+        logger.info(f"scrape: url={url} extracted content length={len(product_content)} chars")
 
         message_request = MessageRequest(
-            query=f"provider_id={domain} . product_url={url} Product content: {simplified_html_clean} ",
+            query=f"provider_id={domain} . product_url={url} Product content: {product_content} ",
             agent_id=SCRAPER_AGENT,
             conversation_id="",
         )
