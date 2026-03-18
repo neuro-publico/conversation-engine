@@ -8,37 +8,74 @@ logger = logging.getLogger(__name__)
 MAX_CONTENT_CHARS = 15000
 
 NOISE_TAGS = [
-    "script", "style", "noscript", "svg", "link", "meta", "head",
-    "nav", "footer", "header", "aside", "iframe",
+    "script",
+    "style",
+    "noscript",
+    "svg",
+    "link",
+    "meta",
+    "head",
+    "nav",
+    "footer",
+    "header",
+    "aside",
+    "iframe",
 ]
 
 NOISE_SELECTORS = [
-    "[id*='review']", "[class*='review']",
-    "[id*='related']", "[class*='related']",
-    "[id*='recommend']", "[class*='recommend']",
-    "[id*='sponsored']", "[class*='sponsored']",
-    "[id*='comment']", "[class*='comment']",
-    "[id*='sidebar']", "[class*='sidebar']",
-    "[id*='footer']", "[class*='footer']",
-    "[id*='nav']", "[class*='nav']",
-    "[id*='breadcrumb']", "[class*='breadcrumb']",
-    "[id*='cookie']", "[class*='cookie']",
-    "[id*='banner']", "[class*='banner']",
-    "[id*='advertisement']", "[class*='advertisement']",
-    "[id*='ad-']", "[class*='ad-']",
+    "[id*='review']",
+    "[class*='review']",
+    "[id*='related']",
+    "[class*='related']",
+    "[id*='recommend']",
+    "[class*='recommend']",
+    "[id*='sponsored']",
+    "[class*='sponsored']",
+    "[id*='comment']",
+    "[class*='comment']",
+    "[id*='sidebar']",
+    "[class*='sidebar']",
+    "[id*='footer']",
+    "[class*='footer']",
+    "[id*='nav']",
+    "[class*='nav']",
+    "[id*='breadcrumb']",
+    "[class*='breadcrumb']",
+    "[id*='cookie']",
+    "[class*='cookie']",
+    "[id*='banner']",
+    "[class*='banner']",
+    "[id*='advertisement']",
+    "[class*='advertisement']",
+    "[id*='ad-']",
+    "[class*='ad-']",
 ]
 
 PRODUCT_SELECTORS = [
-    "#productTitle", "#title", "[class*='product-title']", "[class*='productTitle']",
-    "#price", "#priceblock_ourprice", "#priceblock_dealprice",
-    "[class*='price']", "[class*='Price']",
-    "#productDescription", "#feature-bullets", "[class*='product-description']",
-    "[class*='productDescription']", "[class*='description']",
-    "#imageBlock", "[class*='product-image']", "[class*='productImage']",
+    "#productTitle",
+    "#title",
+    "[class*='product-title']",
+    "[class*='productTitle']",
+    "#price",
+    "#priceblock_ourprice",
+    "#priceblock_dealprice",
+    "[class*='price']",
+    "[class*='Price']",
+    "#productDescription",
+    "#feature-bullets",
+    "[class*='product-description']",
+    "[class*='productDescription']",
+    "[class*='description']",
+    "#imageBlock",
+    "[class*='product-image']",
+    "[class*='productImage']",
     "[class*='gallery']",
-    "[class*='variant']", "[class*='variation']", "[class*='option']",
+    "[class*='variant']",
+    "[class*='variation']",
+    "[class*='option']",
     "[class*='swatch']",
-    "#aplus", "[class*='a-plus']",
+    "#aplus",
+    "[class*='a-plus']",
 ]
 
 
@@ -79,7 +116,7 @@ def extract_product_content(html_content: str, max_chars: int = MAX_CONTENT_CHAR
         for img in soup.find_all("img", src=True)[:10]:
             src = img.get("src", "")
             if src and "pixel" not in src and "blank" not in src and len(src) > 10:
-                images.append(f'[img: {src}]')
+                images.append(f"[img: {src}]")
         content = " ".join(product_parts) + " " + " ".join(images)
         return truncate_content(content, max_chars)
 
