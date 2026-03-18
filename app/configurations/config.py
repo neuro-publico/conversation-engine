@@ -75,3 +75,6 @@ def get_dropi_api_key(country: str = "co") -> str:
 
 
 FAL_AI_API_KEY: str = os.getenv("FAL_AI_API_KEY")
+
+MERCADOLIBRE_CLIENT_ID: str = os.getenv("MERCADO_LIBRE_CLIENT_ID")
+MERCADOLIBRE_CLIENT_SECRET: str = os.getenv("MERCADO_LIBRE_CLIENT_SECRET")

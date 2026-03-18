@@ -11,6 +11,10 @@ async def verify_api_key(api_key: Optional[str]) -> bool:
     if not api_key:
         raise HTTPException(status_code=401, detail="API Key not provided")
 
+    print(f"[DEBUG] api_key recibida: '{api_key}'")
+    print(f"[DEBUG] API_KEY esperada:  '{API_KEY}'")
+    print(f"[DEBUG] coinciden: {api_key == API_KEY}")
+
     if api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 

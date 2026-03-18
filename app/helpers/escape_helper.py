@@ -1,6 +1,128 @@
+import logging
 import re
 
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
+
+MAX_CONTENT_CHARS = 15000
+
+NOISE_TAGS = [
+    "script",
+    "style",
+    "noscript",
+    "svg",
+    "link",
+    "meta",
+    "head",
+    "nav",
+    "footer",
+    "header",
+    "aside",
+    "iframe",
+]
+
+NOISE_SELECTORS = [
+    "[id*='review']",
+    "[class*='review']",
+    "[id*='related']",
+    "[class*='related']",
+    "[id*='recommend']",
+    "[class*='recommend']",
+    "[id*='sponsored']",
+    "[class*='sponsored']",
+    "[id*='comment']",
+    "[class*='comment']",
+    "[id*='sidebar']",
+    "[class*='sidebar']",
+    "[id*='footer']",
+    "[class*='footer']",
+    "[id*='nav']",
+    "[class*='nav']",
+    "[id*='breadcrumb']",
+    "[class*='breadcrumb']",
+    "[id*='cookie']",
+    "[class*='cookie']",
+    "[id*='banner']",
+    "[class*='banner']",
+    "[id*='advertisement']",
+    "[class*='advertisement']",
+    "[id*='ad-']",
+    "[class*='ad-']",
+]
+
+PRODUCT_SELECTORS = [
+    "#productTitle",
+    "#title",
+    "[class*='product-title']",
+    "[class*='productTitle']",
+    "#price",
+    "#priceblock_ourprice",
+    "#priceblock_dealprice",
+    "[class*='price']",
+    "[class*='Price']",
+    "#productDescription",
+    "#feature-bullets",
+    "[class*='product-description']",
+    "[class*='productDescription']",
+    "[class*='description']",
+    "#imageBlock",
+    "[class*='product-image']",
+    "[class*='productImage']",
+    "[class*='gallery']",
+    "[class*='variant']",
+    "[class*='variation']",
+    "[class*='option']",
+    "[class*='swatch']",
+    "#aplus",
+    "[class*='a-plus']",
+]
+
+
+def truncate_content(text: str, max_chars: int = MAX_CONTENT_CHARS) -> str:
+    if len(text) <= max_chars:
+        return text
+
+    truncated = text[:max_chars]
+    last_space = truncated.rfind(" ")
+    if last_space > max_chars * 0.8:
+        truncated = truncated[:last_space]
+
+    logger.info(f"Content truncated: {len(text)} -> {len(truncated)} chars")
+    return truncated
+
+
+def extract_product_content(html_content: str, max_chars: int = MAX_CONTENT_CHARS) -> str:
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    for tag in soup(NOISE_TAGS):
+        tag.decompose()
+
+    for selector in NOISE_SELECTORS:
+        for tag in soup.select(selector):
+            tag.decompose()
+
+    product_parts = []
+    for selector in PRODUCT_SELECTORS:
+        for el in soup.select(selector):
+            text = el.get_text(separator=" ", strip=True)
+            if text and len(text) > 3:
+                product_parts.append(text)
+            for img in el.find_all("img", src=True):
+                product_parts.append(f'[img: {img["src"]}]')
+
+    if product_parts:
+        images = []
+        for img in soup.find_all("img", src=True)[:10]:
+            src = img.get("src", "")
+            if src and "pixel" not in src and "blank" not in src and len(src) > 10:
+                images.append(f"[img: {src}]")
+        content = " ".join(product_parts) + " " + " ".join(images)
+        return truncate_content(content, max_chars)
+
+    logger.info("No product selectors matched, falling back to clean_html_deeply with truncation")
+    cleaned = clean_html_deeply(html_content)
+    return truncate_content(cleaned, max_chars)
 
 
 def clean_placeholders(text: str, allowed_keys: list = None) -> str:
