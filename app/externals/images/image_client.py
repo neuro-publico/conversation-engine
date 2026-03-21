@@ -146,6 +146,64 @@ async def google_image(
         raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
 
 
+async def google_image_with_text(
+    image_urls: list[str], prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None
+) -> tuple[bytes, str]:
+    """Like google_image() but returns (image_bytes, text_response) instead of just image_bytes."""
+    if extra_params is None:
+        extra_params = {}
+
+    if model_ia and "image" in model_ia.lower():
+        model_name = model_ia
+    else:
+        model_name = "gemini-3-pro-image-preview"
+
+    is_model_25 = "2.5" in model_name
+    aspect_ratio = extra_params.get("aspect_ratio", "1:1")
+    image_size = extra_params.get("image_size", "1K")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
+
+    parts = [{"text": prompt}]
+
+    if image_urls:
+        image_parts = await _fetch_and_encode_images(image_urls, is_model_25)
+        parts.extend(image_parts)
+
+    payload = {
+        "contents": [{"parts": parts}],
+        "generationConfig": _build_generation_config(is_model_25, aspect_ratio, image_size),
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    resp_parts = data["candidates"][0]["content"]["parts"]
+
+                    image_bytes = None
+                    text_parts = []
+                    for part in resp_parts:
+                        if "inlineData" in part:
+                            image_bytes = base64.b64decode(part["inlineData"]["data"])
+                        elif "text" in part:
+                            text_parts.append(part["text"])
+
+                    if image_bytes is None:
+                        raise Exception("No se generó ninguna imagen en la respuesta de Google Gemini")
+
+                    return image_bytes, "\n".join(text_parts)
+                else:
+                    error_text = await response.text()
+                    print(f"Error {response.status}: {error_text}")
+                    response.raise_for_status()
+    except Exception as e:
+        print(f"Error al generar imagen con Google Gemini: {str(e)}")
+        raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
+
+
 async def openai_image_edit(
     image_urls: list[str], prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None
 ) -> bytes:
