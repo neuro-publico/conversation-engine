@@ -11,6 +11,19 @@ import requests
 from app.configurations import config
 from app.configurations.config import GOOGLE_GEMINI_API_KEY, OPENAI_API_KEY, REPLICATE_API_KEY
 
+# Shared session for Gemini API calls (reuses TCP connections)
+_gemini_session: Optional[aiohttp.ClientSession] = None
+
+
+async def _get_gemini_session() -> aiohttp.ClientSession:
+    global _gemini_session
+    if _gemini_session is None or _gemini_session.closed:
+        _gemini_session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=120),
+            connector=aiohttp.TCPConnector(limit=20),
+        )
+    return _gemini_session
+
 
 async def generate_image_variation(
     image_url: str,
@@ -68,20 +81,29 @@ def _build_image_part(image_base64: str, is_model_25: bool) -> dict:
     return {"inline_data": {"mime_type": "image/jpeg", "data": image_base64}}
 
 
-async def _fetch_and_encode_images(image_urls: list[str], is_model_25: bool) -> list[dict]:
-    parts = []
-    async with aiohttp.ClientSession() as fetch_session:
-        for image_url in image_urls:
-            try:
-                async with fetch_session.get(image_url) as img_response:
-                    if img_response.status == 200:
-                        image_bytes = await img_response.read()
-                        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-                        parts.append(_build_image_part(image_base64, is_model_25))
-            except Exception as e:
-                print(f"Error al procesar imagen de {image_url}: {str(e)}")
-                continue
-    return parts
+async def _fetch_and_encode_images(
+    image_urls: list[str], is_model_25: bool, session: Optional[aiohttp.ClientSession] = None
+) -> list[dict]:
+    async def _fetch_one(fetch_session: aiohttp.ClientSession, image_url: str) -> Optional[dict]:
+        try:
+            async with fetch_session.get(image_url) as img_response:
+                if img_response.status == 200:
+                    image_bytes = await img_response.read()
+                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    return _build_image_part(image_base64, is_model_25)
+        except Exception as e:
+            print(f"Error al procesar imagen de {image_url}: {type(e).__name__}: {str(e) or repr(e)}")
+        return None
+
+    if session:
+        # Use shared session, download in parallel
+        results = await asyncio.gather(*[_fetch_one(session, url) for url in image_urls])
+        return [r for r in results if r is not None]
+    else:
+        # Legacy: create new session (keeps google_image() unchanged)
+        async with aiohttp.ClientSession() as fetch_session:
+            results = await asyncio.gather(*[_fetch_one(fetch_session, url) for url in image_urls])
+            return [r for r in results if r is not None]
 
 
 def _build_generation_config(is_model_25: bool, aspect_ratio: str, image_size: str) -> dict:
@@ -144,6 +166,86 @@ async def google_image(
     except Exception as e:
         print(f"Error al generar imagen con Google Gemini: {str(e)}")
         raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
+
+
+async def google_image_with_text(
+    image_urls: list[str], prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None
+) -> tuple[bytes, str]:
+    """Like google_image() but returns (image_bytes, text_response) instead of just image_bytes."""
+    if extra_params is None:
+        extra_params = {}
+
+    default_model = os.environ.get("SECTION_IMAGE_MODEL", "gemini-3.1-flash-image-preview")
+    if model_ia and "image" in model_ia.lower():
+        model_name = model_ia
+    else:
+        model_name = default_model
+
+    is_model_25 = "2.5" in model_name
+    is_flash = "flash" in model_name
+    aspect_ratio = extra_params.get("aspect_ratio", "1:1")
+    image_size = extra_params.get("image_size", "1K")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
+
+    parts = [{"text": prompt}]
+
+    if image_urls:
+        session = await _get_gemini_session()
+        image_parts = await _fetch_and_encode_images(image_urls, is_model_25, session=session)
+        parts.extend(image_parts)
+
+    gen_config = _build_generation_config(is_model_25, aspect_ratio, image_size)
+    if is_flash:
+        gen_config["thinkingConfig"] = {"thinkingLevel": "High"}
+
+    payload = {
+        "contents": [{"parts": parts}],
+        "generationConfig": gen_config,
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        session = await _get_gemini_session()
+        async with session.post(url, headers=headers, json=payload) as response:
+            if response.status == 429:
+                error_text = await response.text()
+                raise Exception(f"Gemini rate limit (429): {error_text[:300]}")
+
+            if response.status != 200:
+                error_text = await response.text()
+                raise Exception(f"Gemini HTTP {response.status}: {error_text[:300]}")
+
+            data = await response.json()
+            candidates = data.get("candidates", [])
+
+            if not candidates:
+                prompt_feedback = data.get("promptFeedback", {})
+                raise Exception(f"Gemini no candidates. promptFeedback: {prompt_feedback}")
+
+            candidate = candidates[0]
+            finish_reason = candidate.get("finishReason", "UNKNOWN")
+            content = candidate.get("content", {})
+            resp_parts = content.get("parts", [])
+
+            if not resp_parts:
+                raise Exception(f"Gemini empty parts. finishReason: {finish_reason}")
+
+            image_bytes = None
+            text_parts = []
+            for part in resp_parts:
+                if "inlineData" in part:
+                    image_bytes = base64.b64decode(part["inlineData"]["data"])
+                elif "text" in part:
+                    text_parts.append(part["text"])
+
+            if image_bytes is None:
+                raise Exception(f"Gemini no image in response. finishReason: {finish_reason}, text: {' '.join(text_parts)[:200]}")
+
+            return image_bytes, "\n".join(text_parts)
+    except Exception as e:
+        print(f"Error google_image_with_text: {type(e).__name__}: {str(e) or repr(e)}")
+        raise
 
 
 async def openai_image_edit(

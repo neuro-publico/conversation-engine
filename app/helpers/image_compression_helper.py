@@ -1,16 +1,22 @@
 import base64
 import io
+from typing import Optional
 
 from PIL import Image
 
 
-def compress_image_to_target(original_image_bytes: bytes, target_kb: int = 120) -> str:
+def compress_image_to_target(original_image_bytes: bytes, target_kb: int = 120, max_width: Optional[int] = None) -> str:
     img = Image.open(io.BytesIO(original_image_bytes))
 
     if img.mode in ("RGBA", "P"):
         img_converted = img.convert("RGBA")
     else:
         img_converted = img.convert("RGB")
+
+    if max_width and img_converted.width > max_width:
+        ratio = max_width / img_converted.width
+        new_height = int(img_converted.height * ratio)
+        img_converted = img_converted.resize((max_width, new_height), Image.Resampling.LANCZOS)
 
     target_bytes = target_kb * 1024
 

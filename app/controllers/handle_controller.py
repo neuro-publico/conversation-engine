@@ -15,6 +15,7 @@ from app.requests.message_request import MessageRequest
 from app.requests.product_scraping_request import ProductScrapingRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
+from app.requests.section_image_request import SectionImageRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
@@ -195,6 +196,19 @@ async def generate_audio(
     audio_service: AudioServiceInterface = Depends(AudioService),
 ):
     return await audio_service.generate_audio(requestGenerateAudio)
+
+
+@router.post("/generate-section-image/api-key")
+@require_api_key
+async def generate_section_image(
+    request: Request,
+    section_request: SectionImageRequest,
+):
+    from app.services.section_image_service import SectionImageService
+
+    service = SectionImageService()
+    response = await service.generate_section_image(section_request)
+    return response
 
 
 @router.get("/health")
