@@ -240,7 +240,9 @@ async def google_image_with_text(
                     text_parts.append(part["text"])
 
             if image_bytes is None:
-                raise Exception(f"Gemini no image in response. finishReason: {finish_reason}, text: {' '.join(text_parts)[:200]}")
+                raise Exception(
+                    f"Gemini no image in response. finishReason: {finish_reason}, text: {' '.join(text_parts)[:200]}"
+                )
 
             return image_bytes, "\n".join(text_parts)
     except Exception as e:
