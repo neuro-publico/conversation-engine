@@ -1,8 +1,5 @@
-import logging
 import resource
 import time
-
-logger = logging.getLogger(__name__)
 
 
 class RequestTracker:
@@ -23,4 +20,4 @@ class RequestTracker:
         parts = [f"[{tag}] {label}", cls.summary(), f"maxrss={mem:.0f}MB"]
         if extra:
             parts.append(extra)
-        logger.info(" | ".join(parts))
+        print(" | ".join(parts), flush=True)
