@@ -153,12 +153,14 @@ async def google_image_with_text(
     if extra_params is None:
         extra_params = {}
 
+    default_model = os.environ.get("SECTION_IMAGE_MODEL", "gemini-3.1-flash-image-preview")
     if model_ia and "image" in model_ia.lower():
         model_name = model_ia
     else:
-        model_name = "gemini-3-pro-image-preview"
+        model_name = default_model
 
     is_model_25 = "2.5" in model_name
+    is_flash = "flash" in model_name
     aspect_ratio = extra_params.get("aspect_ratio", "1:1")
     image_size = extra_params.get("image_size", "1K")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GOOGLE_GEMINI_API_KEY}"
@@ -169,9 +171,13 @@ async def google_image_with_text(
         image_parts = await _fetch_and_encode_images(image_urls, is_model_25)
         parts.extend(image_parts)
 
+    gen_config = _build_generation_config(is_model_25, aspect_ratio, image_size)
+    if is_flash:
+        gen_config["thinkingConfig"] = {"thinkingLevel": "High"}
+
     payload = {
         "contents": [{"parts": parts}],
-        "generationConfig": _build_generation_config(is_model_25, aspect_ratio, image_size),
+        "generationConfig": gen_config,
     }
 
     headers = {"Content-Type": "application/json"}
