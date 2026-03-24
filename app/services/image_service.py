@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+import resource
 import uuid
 from typing import Optional
 
@@ -47,6 +48,12 @@ class ImageService(ImageServiceInterface):
             )
         )
 
+    _code_active_requests = 0
+
+    def _log_mem(self, label: str):
+        mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+        logger.info(f"[MEM-CODE] {label} | active={self._code_active_requests} | maxrss={mem:.0f}MB")
+
     async def _generate_single_variation(
         self,
         url_images: list[str],
@@ -59,6 +66,9 @@ class ImageService(ImageServiceInterface):
         model_ai: Optional[str] = None,
         fallback_config: Optional[dict] = None,
     ) -> str:
+        ImageService._code_active_requests += 1
+        self._log_mem("START")
+
         fc = fallback_config or {}
         max_retries = fc.get("image_max_retries", 5)
         delay_after = fc.get("image_retry_delay_after", 3)
@@ -67,45 +77,53 @@ class ImageService(ImageServiceInterface):
         fb_model = fc.get("image_fallback_model", "gpt-image-1")
 
         last_error = None
-        for attempt in range(1, max_retries + 1):
-            try:
-                if attempt > delay_after:
-                    await asyncio.sleep(delay_seconds)
+        try:
+            for attempt in range(1, max_retries + 1):
+                try:
+                    if attempt > delay_after:
+                        await asyncio.sleep(delay_seconds)
 
-                if provider and provider.lower() == "openai":
+                    if provider and provider.lower() == "openai":
+                        image_content = await openai_image_edit(
+                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                        )
+                    else:
+                        image_content = await google_image(
+                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                        )
+
+                    self._log_mem(f"POST-GEMINI image_size={len(image_content)//1024}KB")
+
+                    content_base64 = base64.b64encode(image_content).decode("utf-8")
+                    final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
+
+                    self._log_mem("POST-UPLOAD")
+                    return final_upload.s3_url
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
+
+            # Fallback to another provider
+            try:
+                logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
+                if fb_provider.lower() == "openai":
                     image_content = await openai_image_edit(
-                        image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
                     )
                 else:
                     image_content = await google_image(
-                        image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
                     )
 
                 content_base64 = base64.b64encode(image_content).decode("utf-8")
                 final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
                 return final_upload.s3_url
             except Exception as e:
-                last_error = e
-                logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
-
-        # Fallback to another provider
-        try:
-            logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
-            if fb_provider.lower() == "openai":
-                image_content = await openai_image_edit(
-                    image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
-                )
-            else:
-                image_content = await google_image(
-                    image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
-                )
-
-            content_base64 = base64.b64encode(image_content).decode("utf-8")
-            final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-            return final_upload.s3_url
-        except Exception as e:
-            logger.error(f"Image fallback also failed: {e}")
-            raise last_error
+                logger.error(f"Image fallback also failed: {e}")
+                raise last_error
+        finally:
+            ImageService._code_active_requests -= 1
+            self._log_mem("END")
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
