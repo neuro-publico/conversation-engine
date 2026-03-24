@@ -97,9 +97,7 @@ class TestMercadoLibreClient:
     @pytest.mark.asyncio
     @patch("app.externals.mercadolibre.mercadolibre_client._get_access_token", new_callable=AsyncMock)
     @patch("app.externals.mercadolibre.mercadolibre_client.httpx.AsyncClient")
-    async def test_get_product_details_success(
-        self, mock_client_class, mock_get_token, mock_product_response
-    ):
+    async def test_get_product_details_success(self, mock_client_class, mock_get_token, mock_product_response):
         """Debe obtener detalles del producto correctamente."""
         mock_get_token.return_value = "test-token"
 
@@ -120,7 +118,9 @@ class TestMercadoLibreClient:
     @pytest.mark.asyncio
     @patch("app.externals.mercadolibre.mercadolibre_client._get_access_token", new_callable=AsyncMock)
     @patch("app.externals.mercadolibre.mercadolibre_client.httpx.AsyncClient")
-    async def test_get_product_details_sends_auth_header(self, mock_client_class, mock_get_token, mock_product_response):
+    async def test_get_product_details_sends_auth_header(
+        self, mock_client_class, mock_get_token, mock_product_response
+    ):
         """Debe enviar header de Authorization con Bearer token."""
         mock_get_token.return_value = "my-token"
 
