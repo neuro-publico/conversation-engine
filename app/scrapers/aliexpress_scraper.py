@@ -1,20 +1,37 @@
+import logging
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from fastapi import HTTPException
 
 from app.externals.aliexpress.aliexpress_client import get_item_detail
 from app.scrapers.scraper_interface import ScraperInterface
 
+logger = logging.getLogger(__name__)
+
 
 class AliexpressScraper(ScraperInterface):
+    def __init__(self, message_service=None):
+        self.message_service = message_service
+
     async def scrape_direct(self, html: str) -> Dict[str, Any]:
         return {}
 
     async def scrape(self, url: str, domain: str = None) -> Dict[str, Any]:
         item_id = self._extract_item_id(url)
-        product_details = await get_item_detail(item_id)
+        try:
+            product_details = await get_item_detail(item_id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and self.message_service:
+                logger.warning("AliExpress RapidAPI rate limited (429), falling back to IAScraper")
+                from app.scrapers.ia_scraper import IAScraper
+                return await IAScraper(message_service=self.message_service).scrape(url, domain)
+            raise HTTPException(
+                status_code=e.response.status_code,
+                detail=f"Error al consultar AliExpress API: {e.response.status_code}"
+            )
 
         try:
             item_data = self._get_item_data(product_details)
