@@ -77,7 +77,7 @@ class TestParseCtaButtons:
 
     def test_mixed_valid_and_invalid(self, service):
         text = (
-            'BOTONES:\n'
+            "BOTONES:\n"
             '- "VÁLIDO" en [850, 160, 920, 840]\n'
             '- "INVÁLIDO" en [920, 840, 850, 160]\n'
             '- "TAMBIÉN VÁLIDO" en [700, 100, 780, 900]'
@@ -88,10 +88,7 @@ class TestParseCtaButtons:
         assert result[1].label == "TAMBIÉN VÁLIDO"
 
     def test_text_with_extra_content_before_botones(self, service):
-        text = (
-            "Aquí tienes la landing page adaptada.\n\n"
-            'BOTONES:\n- "PEDIR AHORA →" en [860, 172, 936, 828]'
-        )
+        text = "Aquí tienes la landing page adaptada.\n\n" 'BOTONES:\n- "PEDIR AHORA →" en [860, 172, 936, 828]'
         result = service._parse_cta_buttons(text)
         assert len(result) == 1
         assert result[0].label == "PEDIR AHORA →"

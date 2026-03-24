@@ -79,7 +79,9 @@ class SectionImageService:
                 )
             except Exception as e:
                 last_error = e
-                logger.warning(f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}")
+                logger.warning(
+                    f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}"
+                )
 
         # Fallback to OpenAI
         try:
