@@ -16,4 +16,4 @@ class SectionImageRequest(BaseModel):
     user_instructions: Optional[str] = None
     detect_cta_buttons: bool = True
     owner_id: str
-    target_kb: int = 500
+    target_kb: int = 150

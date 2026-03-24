@@ -155,7 +155,7 @@ class SectionImageService:
         return buttons
 
     async def _compress_and_upload(self, image_bytes: bytes, request: SectionImageRequest) -> str:
-        compressed_b64 = compress_image_to_target(image_bytes, target_kb=request.target_kb)
+        compressed_b64 = compress_image_to_target(image_bytes, target_kb=request.target_kb, max_width=1080)
         unique_id = uuid.uuid4().hex[:8]
         folder = f"creatives/sections/{request.owner_id}"
         file_name = f"section_{unique_id}"
