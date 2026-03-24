@@ -92,7 +92,7 @@ async def _fetch_and_encode_images(
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     return _build_image_part(image_base64, is_model_25)
         except Exception as e:
-            print(f"Error al procesar imagen de {image_url}: {str(e)}")
+            print(f"Error al procesar imagen de {image_url}: {type(e).__name__}: {str(e) or repr(e)}")
         return None
 
     if session:
@@ -244,7 +244,7 @@ async def google_image_with_text(
 
             return image_bytes, "\n".join(text_parts)
     except Exception as e:
-        print(f"Error google_image_with_text: {str(e)}")
+        print(f"Error google_image_with_text: {type(e).__name__}: {str(e) or repr(e)}")
         raise
 
 
