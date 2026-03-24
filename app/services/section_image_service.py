@@ -1,7 +1,9 @@
 import asyncio
 import base64
 import logging
+import os
 import re
+import resource
 import uuid
 from typing import List
 
@@ -46,8 +48,23 @@ Después de escribir esto, genera la imagen."""
 
 
 class SectionImageService:
+    _active_requests = 0
+
+    def _log_memory(self, label: str):
+        mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # KB to MB on Linux
+        logger.info(f"[MEM] {label} | active_requests={self._active_requests} | maxrss={mem:.0f}MB")
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
+        SectionImageService._active_requests += 1
+        self._log_memory("START")
+
+        try:
+            return await self._do_generate(request)
+        finally:
+            SectionImageService._active_requests -= 1
+            self._log_memory("END")
+
+    async def _do_generate(self, request: SectionImageRequest) -> SectionImageResponse:
         prompt = self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
 
@@ -66,14 +83,20 @@ class SectionImageService:
                 if attempt > delay_after:
                     await asyncio.sleep(delay_seconds)
 
+                self._log_memory(f"PRE-GEMINI attempt={attempt}")
+
                 image_bytes, text_response = await google_image_with_text(
                     image_urls=image_urls,
                     prompt=prompt,
                     extra_params=extra_params,
                 )
 
+                self._log_memory(f"POST-GEMINI image_size={len(image_bytes)//1024}KB")
+
                 cta_buttons = self._parse_cta_buttons(text_response) if request.detect_cta_buttons else []
                 s3_url = await self._compress_and_upload(image_bytes, request)
+
+                self._log_memory("POST-UPLOAD")
 
                 return SectionImageResponse(
                     s3_url=s3_url,
