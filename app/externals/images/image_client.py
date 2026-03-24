@@ -179,29 +179,44 @@ async def google_image_with_text(
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    resp_parts = data["candidates"][0]["content"]["parts"]
-
-                    image_bytes = None
-                    text_parts = []
-                    for part in resp_parts:
-                        if "inlineData" in part:
-                            image_bytes = base64.b64decode(part["inlineData"]["data"])
-                        elif "text" in part:
-                            text_parts.append(part["text"])
-
-                    if image_bytes is None:
-                        raise Exception("No se generó ninguna imagen en la respuesta de Google Gemini")
-
-                    return image_bytes, "\n".join(text_parts)
-                else:
+                if response.status == 429:
                     error_text = await response.text()
-                    print(f"Error {response.status}: {error_text}")
-                    response.raise_for_status()
+                    raise Exception(f"Gemini rate limit (429): {error_text[:300]}")
+
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"Gemini HTTP {response.status}: {error_text[:300]}")
+
+                data = await response.json()
+                candidates = data.get("candidates", [])
+
+                if not candidates:
+                    prompt_feedback = data.get("promptFeedback", {})
+                    raise Exception(f"Gemini no candidates. promptFeedback: {prompt_feedback}")
+
+                candidate = candidates[0]
+                finish_reason = candidate.get("finishReason", "UNKNOWN")
+                content = candidate.get("content", {})
+                resp_parts = content.get("parts", [])
+
+                if not resp_parts:
+                    raise Exception(f"Gemini empty parts. finishReason: {finish_reason}")
+
+                image_bytes = None
+                text_parts = []
+                for part in resp_parts:
+                    if "inlineData" in part:
+                        image_bytes = base64.b64decode(part["inlineData"]["data"])
+                    elif "text" in part:
+                        text_parts.append(part["text"])
+
+                if image_bytes is None:
+                    raise Exception(f"Gemini no image in response. finishReason: {finish_reason}, text: {' '.join(text_parts)[:200]}")
+
+                return image_bytes, "\n".join(text_parts)
     except Exception as e:
-        print(f"Error al generar imagen con Google Gemini: {str(e)}")
-        raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
+        print(f"Error google_image_with_text: {str(e)}")
+        raise
 
 
 async def openai_image_edit(
