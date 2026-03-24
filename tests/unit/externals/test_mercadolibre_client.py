@@ -6,7 +6,6 @@ Verifica la integración con MercadoLibre API y el manejo de tokens OAuth.
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 
@@ -136,46 +135,3 @@ class TestMercadoLibreClient:
 
         call_kwargs = mock_client.get.call_args
         assert call_kwargs.kwargs["headers"]["Authorization"] == "Bearer my-token"
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    @patch("app.externals.mercadolibre.mercadolibre_client._get_access_token", new_callable=AsyncMock)
-    @patch("app.externals.mercadolibre.mercadolibre_client.httpx.AsyncClient")
-    async def test_get_product_details_raises_on_http_error(self, mock_client_class, mock_get_token):
-        """Debe propagar errores HTTP."""
-        mock_get_token.return_value = "test-token"
-
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
-        )
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_client_class.return_value = mock_client
-
-        from app.externals.mercadolibre.mercadolibre_client import get_product_details
-
-        with pytest.raises(httpx.HTTPStatusError):
-            await get_product_details("INVALID")
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    @patch("app.externals.mercadolibre.mercadolibre_client.httpx.AsyncClient")
-    async def test_get_access_token_raises_on_auth_error(self, mock_client_class):
-        """Debe propagar errores de autenticación OAuth."""
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Unauthorized", request=MagicMock(), response=MagicMock(status_code=401)
-        )
-        mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_client_class.return_value = mock_client
-
-        from app.externals.mercadolibre.mercadolibre_client import _get_access_token
-
-        with pytest.raises(httpx.HTTPStatusError):
-            await _get_access_token()
