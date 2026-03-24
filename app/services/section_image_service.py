@@ -20,6 +20,7 @@ You will receive:
 1. A prompt describing the section style and layout
 2. A STYLE REFERENCE image — match its layout, composition, typography, and visual style as closely as possible
 3. A PRODUCT PHOTO that MUST appear in the final section EXACTLY as provided
+4. A SALES ANGLE that defines the communication strategy — adapt all copy, headlines, and messaging to match this angle
 
 ABSOLUTE RULES:
 - The PRODUCT PHOTO must be placed as-is into the section — like a high-resolution photo cutout
@@ -30,7 +31,8 @@ ABSOLUTE RULES:
 - All text in the specified language
 - Professional, high-quality, ready-to-use section
 - No mockup frames, browser windows, or device frames
-- Adapt colors to match the product packaging colors automatically"""
+- Adapt colors to match the product packaging colors automatically
+- If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging"""
 
 CTA_DETECTION_INSTRUCTION = """
 
@@ -115,14 +117,25 @@ class SectionImageService:
         parts.append(f"Product description: {request.product_description}")
         parts.append(f"Language: {request.language}")
 
-        if request.price is not None:
+        if request.sale_angle_name:
+            angle_block = f"\nSALES ANGLE (this determines the communication tone and messaging for ALL text in the image):"
+            angle_block += f"\n- Angle: {request.sale_angle_name}"
+            if request.sale_angle_description:
+                angle_block += f"\n- Description: {request.sale_angle_description}"
+            angle_block += f"\n- Adapt headlines, benefits, CTAs, and all copy to match this sales angle"
+            parts.append(angle_block)
+
+        if request.price_formatted:
+            price_block = "\nPRICING (use these EXACT formatted values wherever the template shows prices — do NOT change the format or currency):"
+            if request.price_fake_formatted:
+                price_block += f"\n- Original price (show crossed out): {request.price_fake_formatted}"
+            price_block += f"\n- Sale price (show large and prominent): {request.price_formatted}"
+            parts.append(price_block)
+        elif request.price is not None:
             price_block = "\nPRICING (use these exact values wherever the template shows prices):"
             if request.price_fake is not None:
                 price_block += f"\n- Original price (show crossed out): ${request.price_fake:,.0f}"
             price_block += f"\n- Sale price (show large and prominent): ${request.price:,.0f}"
-            if request.price_fake is not None and request.price is not None:
-                savings = request.price_fake - request.price
-                price_block += f"\n- Savings: ${savings:,.0f}"
             parts.append(price_block)
 
         if request.user_instructions:
