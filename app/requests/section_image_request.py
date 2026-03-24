@@ -12,6 +12,10 @@ class SectionImageRequest(BaseModel):
     image_format: str = "9:16"
     price: Optional[float] = None
     price_fake: Optional[float] = None
+    price_formatted: Optional[str] = None
+    price_fake_formatted: Optional[str] = None
+    sale_angle_name: Optional[str] = None
+    sale_angle_description: Optional[str] = None
     user_prompt: Optional[str] = None
     user_instructions: Optional[str] = None
     detect_cta_buttons: bool = True
