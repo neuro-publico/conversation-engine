@@ -1,17 +1,18 @@
 import asyncio
 import base64
+import gc
 import logging
 import re
 import time
 import uuid
 from typing import List
 
-from app.helpers.request_tracker import RequestTracker
-
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
+from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
+from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
 from app.responses.section_image_response import CtaButtonResponse, SectionImageResponse
 
@@ -56,11 +57,15 @@ class SectionImageService:
         RequestTracker.log("MEM", "START")
 
         try:
-            return await self._do_generate(request, t_start)
+            sem = get_image_semaphore()
+            async with sem:
+                RequestTracker.log("MEM", "ACQUIRED-SEM")
+                return await self._do_generate(request, t_start)
         finally:
             elapsed = time.monotonic() - t_start
             RequestTracker.custom_active -= 1
             RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
+            gc.collect()
 
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
@@ -89,10 +94,16 @@ class SectionImageService:
                     extra_params=extra_params,
                 )
 
-                RequestTracker.log("MEM", f"POST-GEMINI", f"image_size={len(image_bytes)//1024}KB elapsed={time.monotonic()-t_start:.1f}s")
+                RequestTracker.log(
+                    "MEM",
+                    f"POST-GEMINI",
+                    f"image_size={len(image_bytes)//1024}KB elapsed={time.monotonic()-t_start:.1f}s",
+                )
 
                 cta_buttons = self._parse_cta_buttons(text_response) if request.detect_cta_buttons else []
+                del text_response
                 s3_url = await self._compress_and_upload(image_bytes, request)
+                del image_bytes
 
                 RequestTracker.log("MEM", "POST-UPLOAD")
 
@@ -105,6 +116,10 @@ class SectionImageService:
                 logger.warning(
                     f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}"
                 )
+                try:
+                    del image_bytes
+                except NameError:
+                    pass
 
         # Fallback to OpenAI
         try:
@@ -117,6 +132,7 @@ class SectionImageService:
                 extra_params=extra_params,
             )
             s3_url = await self._compress_and_upload(image_bytes, request)
+            del image_bytes
             return SectionImageResponse(
                 s3_url=s3_url,
                 cta_buttons=[],
@@ -139,7 +155,9 @@ class SectionImageService:
         parts.append(f"Language: {request.language}")
 
         if request.sale_angle_name:
-            angle_block = f"\nSALES ANGLE (this determines the communication tone and messaging for ALL text in the image):"
+            angle_block = (
+                f"\nSALES ANGLE (this determines the communication tone and messaging for ALL text in the image):"
+            )
             angle_block += f"\n- Angle: {request.sale_angle_name}"
             if request.sale_angle_description:
                 angle_block += f"\n- Description: {request.sale_angle_description}"

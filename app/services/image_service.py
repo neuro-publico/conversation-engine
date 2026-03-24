@@ -1,11 +1,10 @@
 import asyncio
 import base64
+import gc
 import logging
 import time
 import uuid
 from typing import Optional
-
-from app.helpers.request_tracker import RequestTracker
 
 from dotenv import load_dotenv
 from fastapi import Depends
@@ -19,7 +18,9 @@ from app.externals.images.image_client import google_image, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.externals.s3_upload.s3_upload_client import upload_file
+from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
+from app.helpers.request_tracker import RequestTracker
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.message_request import MessageRequest
 from app.requests.variation_image_request import VariationImageRequest
@@ -43,6 +44,7 @@ class ImageService(ImageServiceInterface):
         file_name = f"{prefix_name}_{unique_id}"
         original_image_bytes = base64.b64decode(image_base64)
         image_base64_compressed = compress_image_to_target(original_image_bytes, target_kb=120)
+        del original_image_bytes
 
         return await upload_file(
             S3UploadRequest(
@@ -75,53 +77,73 @@ class ImageService(ImageServiceInterface):
 
         last_error = None
         try:
-            for attempt in range(1, max_retries + 1):
-                try:
-                    if attempt > delay_after:
-                        await asyncio.sleep(delay_seconds)
+            sem = get_image_semaphore()
+            async with sem:
+                RequestTracker.log("MEM-CODE", "ACQUIRED-SEM")
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        if attempt > delay_after:
+                            await asyncio.sleep(delay_seconds)
 
-                    if provider and provider.lower() == "openai":
+                        if provider and provider.lower() == "openai":
+                            image_content = await openai_image_edit(
+                                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                            )
+                        else:
+                            image_content = await google_image(
+                                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                            )
+
+                        RequestTracker.log(
+                            "MEM-CODE",
+                            "POST-GEMINI",
+                            f"image_size={len(image_content)//1024}KB elapsed={time.monotonic()-t_start:.1f}s",
+                        )
+
+                        content_base64 = base64.b64encode(image_content).decode("utf-8")
+                        del image_content
+                        final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
+                        del content_base64
+
+                        RequestTracker.log("MEM-CODE", "POST-UPLOAD")
+                        return final_upload.s3_url
+                    except Exception as e:
+                        last_error = e
+                        logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
+                        try:
+                            del image_content
+                        except NameError:
+                            pass
+                        try:
+                            del content_base64
+                        except NameError:
+                            pass
+
+                # Fallback to another provider
+                try:
+                    logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
+                    if fb_provider.lower() == "openai":
                         image_content = await openai_image_edit(
-                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                            image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
                         )
                     else:
                         image_content = await google_image(
-                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
+                            image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
                         )
 
-                    RequestTracker.log("MEM-CODE", "POST-GEMINI", f"image_size={len(image_content)//1024}KB elapsed={time.monotonic()-t_start:.1f}s")
-
                     content_base64 = base64.b64encode(image_content).decode("utf-8")
+                    del image_content
                     final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-
-                    RequestTracker.log("MEM-CODE", "POST-UPLOAD")
+                    del content_base64
                     return final_upload.s3_url
                 except Exception as e:
-                    last_error = e
-                    logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
-
-            # Fallback to another provider
-            try:
-                logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
-                if fb_provider.lower() == "openai":
-                    image_content = await openai_image_edit(
-                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
-                    )
-                else:
-                    image_content = await google_image(
-                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
-                    )
-
-                content_base64 = base64.b64encode(image_content).decode("utf-8")
-                final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-                return final_upload.s3_url
-            except Exception as e:
-                logger.error(f"Image fallback also failed: {e}")
-                raise last_error
+                    logger.error(f"Image fallback also failed: {e}")
+                    raise last_error
         finally:
             elapsed = time.monotonic() - t_start
             RequestTracker.code_active -= 1
             RequestTracker.log("MEM-CODE", "END", f"elapsed={elapsed:.1f}s")
+            gc.collect()
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]
