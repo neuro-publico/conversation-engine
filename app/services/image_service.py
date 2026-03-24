@@ -1,9 +1,11 @@
 import asyncio
 import base64
 import logging
-import resource
+import time
 import uuid
 from typing import Optional
+
+from app.helpers.request_tracker import RequestTracker
 
 from dotenv import load_dotenv
 from fastapi import Depends
@@ -48,12 +50,6 @@ class ImageService(ImageServiceInterface):
             )
         )
 
-    _code_active_requests = 0
-
-    def _log_mem(self, label: str):
-        mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
-        logger.info(f"[MEM-CODE] {label} | active={self._code_active_requests} | maxrss={mem:.0f}MB")
-
     async def _generate_single_variation(
         self,
         url_images: list[str],
@@ -66,8 +62,9 @@ class ImageService(ImageServiceInterface):
         model_ai: Optional[str] = None,
         fallback_config: Optional[dict] = None,
     ) -> str:
-        ImageService._code_active_requests += 1
-        self._log_mem("START")
+        RequestTracker.code_active += 1
+        t_start = time.monotonic()
+        RequestTracker.log("MEM-CODE", "START")
 
         fc = fallback_config or {}
         max_retries = fc.get("image_max_retries", 5)
@@ -92,12 +89,12 @@ class ImageService(ImageServiceInterface):
                             image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
                         )
 
-                    self._log_mem(f"POST-GEMINI image_size={len(image_content)//1024}KB")
+                    RequestTracker.log("MEM-CODE", "POST-GEMINI", f"image_size={len(image_content)//1024}KB elapsed={time.monotonic()-t_start:.1f}s")
 
                     content_base64 = base64.b64encode(image_content).decode("utf-8")
                     final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
 
-                    self._log_mem("POST-UPLOAD")
+                    RequestTracker.log("MEM-CODE", "POST-UPLOAD")
                     return final_upload.s3_url
                 except Exception as e:
                     last_error = e
@@ -122,8 +119,9 @@ class ImageService(ImageServiceInterface):
                 logger.error(f"Image fallback also failed: {e}")
                 raise last_error
         finally:
-            ImageService._code_active_requests -= 1
-            self._log_mem("END")
+            elapsed = time.monotonic() - t_start
+            RequestTracker.code_active -= 1
+            RequestTracker.log("MEM-CODE", "END", f"elapsed={elapsed:.1f}s")
 
     async def generate_variation_images(self, request: VariationImageRequest, owner_id: str):
         folder_id = uuid.uuid4().hex[:8]

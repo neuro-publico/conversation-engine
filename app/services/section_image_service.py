@@ -1,11 +1,12 @@
 import asyncio
 import base64
 import logging
-import os
 import re
-import resource
+import time
 import uuid
 from typing import List
+
+from app.helpers.request_tracker import RequestTracker
 
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
@@ -48,23 +49,20 @@ Después de escribir esto, genera la imagen."""
 
 
 class SectionImageService:
-    _active_requests = 0
-
-    def _log_memory(self, label: str):
-        mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024  # KB to MB on Linux
-        logger.info(f"[MEM] {label} | active_requests={self._active_requests} | maxrss={mem:.0f}MB")
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
-        SectionImageService._active_requests += 1
-        self._log_memory("START")
+        RequestTracker.custom_active += 1
+        t_start = time.monotonic()
+        RequestTracker.log("MEM", "START")
 
         try:
-            return await self._do_generate(request)
+            return await self._do_generate(request, t_start)
         finally:
-            SectionImageService._active_requests -= 1
-            self._log_memory("END")
+            elapsed = time.monotonic() - t_start
+            RequestTracker.custom_active -= 1
+            RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
 
-    async def _do_generate(self, request: SectionImageRequest) -> SectionImageResponse:
+    async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
 
@@ -83,7 +81,7 @@ class SectionImageService:
                 if attempt > delay_after:
                     await asyncio.sleep(delay_seconds)
 
-                self._log_memory(f"PRE-GEMINI attempt={attempt}")
+                RequestTracker.log("MEM", f"PRE-GEMINI attempt={attempt}")
 
                 image_bytes, text_response = await google_image_with_text(
                     image_urls=image_urls,
@@ -91,12 +89,12 @@ class SectionImageService:
                     extra_params=extra_params,
                 )
 
-                self._log_memory(f"POST-GEMINI image_size={len(image_bytes)//1024}KB")
+                RequestTracker.log("MEM", f"POST-GEMINI", f"image_size={len(image_bytes)//1024}KB elapsed={time.monotonic()-t_start:.1f}s")
 
                 cta_buttons = self._parse_cta_buttons(text_response) if request.detect_cta_buttons else []
                 s3_url = await self._compress_and_upload(image_bytes, request)
 
-                self._log_memory("POST-UPLOAD")
+                RequestTracker.log("MEM", "POST-UPLOAD")
 
                 return SectionImageResponse(
                     s3_url=s3_url,
