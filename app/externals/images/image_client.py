@@ -81,20 +81,29 @@ def _build_image_part(image_base64: str, is_model_25: bool) -> dict:
     return {"inline_data": {"mime_type": "image/jpeg", "data": image_base64}}
 
 
-async def _fetch_and_encode_images(image_urls: list[str], is_model_25: bool) -> list[dict]:
-    parts = []
-    async with aiohttp.ClientSession() as fetch_session:
-        for image_url in image_urls:
-            try:
-                async with fetch_session.get(image_url) as img_response:
-                    if img_response.status == 200:
-                        image_bytes = await img_response.read()
-                        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-                        parts.append(_build_image_part(image_base64, is_model_25))
-            except Exception as e:
-                print(f"Error al procesar imagen de {image_url}: {str(e)}")
-                continue
-    return parts
+async def _fetch_and_encode_images(
+    image_urls: list[str], is_model_25: bool, session: Optional[aiohttp.ClientSession] = None
+) -> list[dict]:
+    async def _fetch_one(fetch_session: aiohttp.ClientSession, image_url: str) -> Optional[dict]:
+        try:
+            async with fetch_session.get(image_url) as img_response:
+                if img_response.status == 200:
+                    image_bytes = await img_response.read()
+                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    return _build_image_part(image_base64, is_model_25)
+        except Exception as e:
+            print(f"Error al procesar imagen de {image_url}: {str(e)}")
+        return None
+
+    if session:
+        # Use shared session, download in parallel
+        results = await asyncio.gather(*[_fetch_one(session, url) for url in image_urls])
+        return [r for r in results if r is not None]
+    else:
+        # Legacy: create new session (keeps google_image() unchanged)
+        async with aiohttp.ClientSession() as fetch_session:
+            results = await asyncio.gather(*[_fetch_one(fetch_session, url) for url in image_urls])
+            return [r for r in results if r is not None]
 
 
 def _build_generation_config(is_model_25: bool, aspect_ratio: str, image_size: str) -> dict:
@@ -181,7 +190,8 @@ async def google_image_with_text(
     parts = [{"text": prompt}]
 
     if image_urls:
-        image_parts = await _fetch_and_encode_images(image_urls, is_model_25)
+        session = await _get_gemini_session()
+        image_parts = await _fetch_and_encode_images(image_urls, is_model_25, session=session)
         parts.extend(image_parts)
 
     gen_config = _build_generation_config(is_model_25, aspect_ratio, image_size)
