@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-MAX_CONCURRENT_IMAGE_REQUESTS = int(os.environ.get("MAX_CONCURRENT_IMAGE_REQUESTS", "15"))
+MAX_CONCURRENT_IMAGE_REQUESTS = int(os.environ.get("MAX_CONCURRENT_IMAGE_REQUESTS", "50"))
 
 _image_semaphore = None
 

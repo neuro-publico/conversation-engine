@@ -39,5 +39,5 @@ class TestConcurrency:
 
     @pytest.mark.unit
     def test_default_limit(self):
-        """Default limit should be 15."""
-        assert MAX_CONCURRENT_IMAGE_REQUESTS == 15
+        """Default limit should be 50."""
+        assert MAX_CONCURRENT_IMAGE_REQUESTS == 50
