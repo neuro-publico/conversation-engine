@@ -40,6 +40,7 @@ ABSOLUTE RULES:
 - Professional, high-quality, ready-to-use section
 - No mockup frames, browser windows, or device frames
 - Adapt colors to match the real product's packaging colors automatically
+- If brand colors are provided, use them as the primary reference for the design palette — buttons, accents, borders, and highlights should harmonize with these colors
 - If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging
 - If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or number format"""
 
@@ -184,6 +185,14 @@ class SectionImageService:
                 price_block += f"\n- Original price (show crossed out): ${request.price_fake:,.0f}"
             price_block += f"\n- Sale price (show large and prominent): ${request.price:,.0f}"
             parts.append(price_block)
+
+        if request.brand_colors and len(request.brand_colors) > 0:
+            colors_str = ", ".join(request.brand_colors)
+            colors_block = f"""\nBRAND COLORS (reference palette extracted from the product):
+- Colors: {colors_str}
+
+Use these as a color reference to create visual harmony between the section and the product. The design should feel like it belongs to the same brand, but you have creative freedom to choose contrast, backgrounds, and accents that work best for each specific section layout."""
+            parts.append(colors_block)
 
         if request.user_instructions:
             parts.append(f"\nAdditional instructions: {request.user_instructions}")

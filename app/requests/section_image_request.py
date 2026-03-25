@@ -21,3 +21,4 @@ class SectionImageRequest(BaseModel):
     detect_cta_buttons: bool = True
     owner_id: str
     target_kb: int = 150
+    brand_colors: Optional[list[str]] = None
