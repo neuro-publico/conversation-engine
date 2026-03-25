@@ -1,7 +1,9 @@
 import asyncio
 import base64
+import gc
 import logging
 import re
+import time
 import uuid
 from typing import List
 
@@ -9,6 +11,7 @@ from app.externals.images.image_client import google_image_with_text, openai_ima
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
 from app.helpers.image_compression_helper import compress_image_to_target
+from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
 from app.responses.section_image_response import CtaButtonResponse, SectionImageResponse
 
@@ -18,19 +21,27 @@ SYSTEM_PROMPT = """You are an expert e-commerce landing page designer specializi
 
 You will receive:
 1. A prompt describing the section style and layout
-2. A STYLE REFERENCE image — match its layout, composition, typography, and visual style as closely as possible
-3. A PRODUCT PHOTO that MUST appear in the final section EXACTLY as provided
+2. A STYLE REFERENCE image (template) — match its layout, composition, typography, and visual style as closely as possible
+3. A PRODUCT PHOTO — the REAL product that this landing page is selling
+4. A SALES ANGLE that defines the communication strategy — adapt all copy, headlines, and messaging to match this angle
+
+CRITICAL — TEMPLATE vs PRODUCT DISTINCTION:
+- The STYLE REFERENCE image is a TEMPLATE that contains EXAMPLE/PLACEHOLDER products. These are NOT the real product.
+- You MUST REPLACE every example product, placeholder image, and sample photo in the template with the REAL PRODUCT PHOTO provided.
+- The REAL PRODUCT PHOTO must appear as-is — like a high-resolution photo cutout placed into the design.
+- NEVER keep the template's example products in the final image. The only product visible must be the one from the PRODUCT PHOTO.
 
 ABSOLUTE RULES:
-- The PRODUCT PHOTO must be placed as-is into the section — like a high-resolution photo cutout
-- NEVER redraw, reinterpret, re-render, or artistically recreate the product
-- Every label, brand name, text on packaging, color, shape, and proportion must be IDENTICAL to the provided photo
+- NEVER redraw, reinterpret, re-render, or artistically recreate the real product
+- Every label, brand name, text on packaging, color, shape, and proportion of the REAL PRODUCT must be IDENTICAL to the provided photo
 - This is a LANDING PAGE SECTION — it must look like part of a real e-commerce funnel, NOT a social media ad
 - Mobile-first vertical layout
 - All text in the specified language
 - Professional, high-quality, ready-to-use section
 - No mockup frames, browser windows, or device frames
-- Adapt colors to match the product packaging colors automatically"""
+- Adapt colors to match the real product's packaging colors automatically
+- If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging
+- If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or number format"""
 
 CTA_DETECTION_INSTRUCTION = """
 
@@ -46,8 +57,22 @@ Después de escribir esto, genera la imagen."""
 class SectionImageService:
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
+        RequestTracker.custom_active += 1
+        t_start = time.monotonic()
+        RequestTracker.log("MEM", "START")
+
+        try:
+            return await self._do_generate(request, t_start)
+        finally:
+            elapsed = time.monotonic() - t_start
+            RequestTracker.custom_active -= 1
+            RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
+            gc.collect()
+
+    async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
+        print(f"[PROMPT-DEBUG] images={image_urls} prompt_length={len(prompt)}\n---PROMPT START---\n{prompt}\n---PROMPT END---", flush=True)
 
         extra_params = {
             "aspect_ratio": request.image_format,
@@ -64,14 +89,26 @@ class SectionImageService:
                 if attempt > delay_after:
                     await asyncio.sleep(delay_seconds)
 
+                RequestTracker.log("MEM", f"PRE-GEMINI attempt={attempt}")
+
                 image_bytes, text_response = await google_image_with_text(
                     image_urls=image_urls,
                     prompt=prompt,
                     extra_params=extra_params,
                 )
 
+                RequestTracker.log(
+                    "MEM",
+                    f"POST-GEMINI",
+                    f"image_size={len(image_bytes)//1024}KB elapsed={time.monotonic()-t_start:.1f}s",
+                )
+
                 cta_buttons = self._parse_cta_buttons(text_response) if request.detect_cta_buttons else []
+                del text_response
                 s3_url = await self._compress_and_upload(image_bytes, request)
+                del image_bytes
+
+                RequestTracker.log("MEM", "POST-UPLOAD")
 
                 return SectionImageResponse(
                     s3_url=s3_url,
@@ -82,6 +119,10 @@ class SectionImageService:
                 logger.warning(
                     f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}"
                 )
+                try:
+                    del image_bytes
+                except NameError:
+                    pass
 
         # Fallback to OpenAI
         try:
@@ -94,6 +135,7 @@ class SectionImageService:
                 extra_params=extra_params,
             )
             s3_url = await self._compress_and_upload(image_bytes, request)
+            del image_bytes
             return SectionImageResponse(
                 s3_url=s3_url,
                 cta_buttons=[],
@@ -115,14 +157,27 @@ class SectionImageService:
         parts.append(f"Product description: {request.product_description}")
         parts.append(f"Language: {request.language}")
 
-        if request.price is not None:
+        if request.sale_angle_name:
+            angle_block = (
+                f"\nSALES ANGLE (this determines the communication tone and messaging for ALL text in the image):"
+            )
+            angle_block += f"\n- Angle: {request.sale_angle_name}"
+            if request.sale_angle_description:
+                angle_block += f"\n- Description: {request.sale_angle_description}"
+            angle_block += f"\n- Adapt headlines, benefits, CTAs, and all copy to match this sales angle"
+            parts.append(angle_block)
+
+        if request.price_formatted:
+            price_block = "\nPRICING (use these EXACT formatted values wherever the template shows prices — do NOT change the format or currency):"
+            if request.price_fake_formatted:
+                price_block += f"\n- Original price (show crossed out): {request.price_fake_formatted}"
+            price_block += f"\n- Sale price (show large and prominent): {request.price_formatted}"
+            parts.append(price_block)
+        elif request.price is not None:
             price_block = "\nPRICING (use these exact values wherever the template shows prices):"
             if request.price_fake is not None:
                 price_block += f"\n- Original price (show crossed out): ${request.price_fake:,.0f}"
             price_block += f"\n- Sale price (show large and prominent): ${request.price:,.0f}"
-            if request.price_fake is not None and request.price is not None:
-                savings = request.price_fake - request.price
-                price_block += f"\n- Savings: ${savings:,.0f}"
             parts.append(price_block)
 
         if request.user_instructions:

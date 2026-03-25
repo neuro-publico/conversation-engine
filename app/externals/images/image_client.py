@@ -6,7 +6,6 @@ from typing import Optional
 
 import aiohttp
 import httpx
-import requests
 
 from app.configurations import config
 from app.configurations.config import GOOGLE_GEMINI_API_KEY, OPENAI_API_KEY, REPLICATE_API_KEY
@@ -90,6 +89,7 @@ async def _fetch_and_encode_images(
                 if img_response.status == 200:
                     image_bytes = await img_response.read()
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    del image_bytes  # Free raw bytes; only base64 string needed
                     return _build_image_part(image_base64, is_model_25)
         except Exception as e:
             print(f"Error al procesar imagen de {image_url}: {type(e).__name__}: {str(e) or repr(e)}")
@@ -146,23 +146,23 @@ async def google_image(
     headers = {"Content-Type": "application/json"}
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    parts = data["candidates"][0]["content"]["parts"]
+        session = await _get_gemini_session()
+        async with session.post(url, headers=headers, json=payload) as response:
+            if response.status == 200:
+                data = await response.json()
+                parts = data["candidates"][0]["content"]["parts"]
 
-                    for part in parts:
-                        if "inlineData" in part:
-                            img_data_base64 = part["inlineData"]["data"]
-                            img_bytes = base64.b64decode(img_data_base64)
-                            return img_bytes
+                for part in parts:
+                    if "inlineData" in part:
+                        img_data_base64 = part["inlineData"]["data"]
+                        img_bytes = base64.b64decode(img_data_base64)
+                        return img_bytes
 
-                    raise Exception("No se generó ninguna imagen en la respuesta de Google Gemini")
-                else:
-                    error_text = await response.text()
-                    print(f"Error {response.status}: {error_text}")
-                    response.raise_for_status()
+                raise Exception("No se generó ninguna imagen en la respuesta de Google Gemini")
+            else:
+                error_text = await response.text()
+                print(f"Error {response.status}: {error_text}")
+                response.raise_for_status()
     except Exception as e:
         print(f"Error al generar imagen con Google Gemini: {str(e)}")
         raise Exception(f"Error al generar imagen con Google Gemini: {str(e)}")
