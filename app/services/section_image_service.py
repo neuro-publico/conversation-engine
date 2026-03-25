@@ -66,6 +66,7 @@ class SectionImageService:
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
+        print(f"[PROMPT-DEBUG] images={image_urls} prompt_length={len(prompt)}\n---PROMPT START---\n{prompt}\n---PROMPT END---", flush=True)
 
         extra_params = {
             "aspect_ratio": request.image_format,
