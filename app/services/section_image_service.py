@@ -168,8 +168,9 @@ class SectionImageService:
             parts.append(angle_block)
 
         def _clean_price(price_str: str) -> str:
-            """Remove trailing ,00 or .00 decimals (e.g. $ 140.000,00 → $ 140.000)"""
-            return price_str.replace(",00", "").replace(".00", "") if price_str else price_str
+            """Remove trailing ,00 or .00 decimals only at END (e.g. $ 140.000,00 → $ 140.000)"""
+            import re
+            return re.sub(r'[,.]00$', '', price_str) if price_str else price_str
 
         if request.price_formatted:
             price_block = "\nPRICING (use these EXACT formatted values wherever the template shows prices — do NOT change the format or currency):"
