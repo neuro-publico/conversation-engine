@@ -10,7 +10,6 @@ from typing import List
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
-from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
@@ -57,10 +56,7 @@ class SectionImageService:
         RequestTracker.log("MEM", "START")
 
         try:
-            sem = get_image_semaphore()
-            async with sem:
-                RequestTracker.log("MEM", "ACQUIRED-SEM")
-                return await self._do_generate(request, t_start)
+            return await self._do_generate(request, t_start)
         finally:
             elapsed = time.monotonic() - t_start
             RequestTracker.custom_active -= 1

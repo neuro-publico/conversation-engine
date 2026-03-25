@@ -18,7 +18,6 @@ from app.externals.images.image_client import google_image, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.externals.s3_upload.s3_upload_client import upload_file
-from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.generate_image_request import GenerateImageRequest
@@ -77,68 +76,65 @@ class ImageService(ImageServiceInterface):
 
         last_error = None
         try:
-            sem = get_image_semaphore()
-            async with sem:
-                RequestTracker.log("MEM-CODE", "ACQUIRED-SEM")
-                for attempt in range(1, max_retries + 1):
-                    try:
-                        if attempt > delay_after:
-                            await asyncio.sleep(delay_seconds)
-
-                        if provider and provider.lower() == "openai":
-                            image_content = await openai_image_edit(
-                                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
-                            )
-                        else:
-                            image_content = await google_image(
-                                image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
-                            )
-
-                        RequestTracker.log(
-                            "MEM-CODE",
-                            "POST-GEMINI",
-                            f"image_size={len(image_content)//1024}KB elapsed={time.monotonic()-t_start:.1f}s",
-                        )
-
-                        content_base64 = base64.b64encode(image_content).decode("utf-8")
-                        del image_content
-                        final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
-                        del content_base64
-
-                        RequestTracker.log("MEM-CODE", "POST-UPLOAD")
-                        return final_upload.s3_url
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
-                        try:
-                            del image_content
-                        except NameError:
-                            pass
-                        try:
-                            del content_base64
-                        except NameError:
-                            pass
-
-                # Fallback to another provider
+            for attempt in range(1, max_retries + 1):
                 try:
-                    logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
-                    if fb_provider.lower() == "openai":
+                    if attempt > delay_after:
+                        await asyncio.sleep(delay_seconds)
+
+                    if provider and provider.lower() == "openai":
                         image_content = await openai_image_edit(
-                            image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
                         )
                     else:
                         image_content = await google_image(
-                            image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                            image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
                         )
+
+                    RequestTracker.log(
+                        "MEM-CODE",
+                        "POST-GEMINI",
+                        f"image_size={len(image_content)//1024}KB elapsed={time.monotonic()-t_start:.1f}s",
+                    )
 
                     content_base64 = base64.b64encode(image_content).decode("utf-8")
                     del image_content
                     final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
                     del content_base64
+
+                    RequestTracker.log("MEM-CODE", "POST-UPLOAD")
                     return final_upload.s3_url
                 except Exception as e:
-                    logger.error(f"Image fallback also failed: {e}")
-                    raise last_error
+                    last_error = e
+                    logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
+                    try:
+                        del image_content
+                    except NameError:
+                        pass
+                    try:
+                        del content_base64
+                    except NameError:
+                        pass
+
+            # Fallback to another provider
+            try:
+                logger.info(f"Trying image fallback: {fb_provider}/{fb_model}")
+                if fb_provider.lower() == "openai":
+                    image_content = await openai_image_edit(
+                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                    )
+                else:
+                    image_content = await google_image(
+                        image_urls=url_images, prompt=prompt, model_ia=fb_model, extra_params=extra_params
+                    )
+
+                content_base64 = base64.b64encode(image_content).decode("utf-8")
+                del image_content
+                final_upload = await self._upload_to_s3(content_base64, owner_id, folder_id, "variation")
+                del content_base64
+                return final_upload.s3_url
+            except Exception as e:
+                logger.error(f"Image fallback also failed: {e}")
+                raise last_error
         finally:
             elapsed = time.monotonic() - t_start
             RequestTracker.code_active -= 1
