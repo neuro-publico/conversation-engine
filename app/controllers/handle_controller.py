@@ -53,6 +53,8 @@ async def handle_message(request: MessageRequest, message_service: MessageServic
 @router.post("/handle-message-json")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
     response = await message_service.handle_message_json(request)
+    if request.agent_id and "design" in request.agent_id.lower():
+        print(f"[DESIGN-DEBUG] agent={request.agent_id} response={response}", flush=True)
     return response
 
 
