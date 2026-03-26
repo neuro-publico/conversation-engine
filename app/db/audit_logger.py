@@ -25,7 +25,7 @@ async def init_pool():
             max_size=10,
             command_timeout=10,
         )
-        print(f"[AUDIT] Connected to {host}/{os.getenv('AUDIT_DB_NAME', 'prompt_logs')}", flush=True)
+        print(f"[AUDIT] Connected to {host}/{os.getenv('AUDIT_DB_NAME', 'analytics')}", flush=True)
     except Exception as e:
         print(f"[AUDIT] Failed to connect to audit DB: {e}", flush=True)
         _pool = None
