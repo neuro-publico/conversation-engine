@@ -1,7 +1,10 @@
+import asyncio
 import base64
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.db.audit_logger import log_prompt
 
 from app.middlewares.auth_middleware import require_api_key, require_auth
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
@@ -46,23 +49,23 @@ async def get_cities_by_department(
 
 @router.post("/handle-message")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
-    if request.agent_id:
-        print(f"[AGENT-DEBUG] /handle-message agent={request.agent_id} query={request.query[:200] if request.query else 'N/A'}", flush=True)
     response = await message_service.handle_message(request)
     if request.agent_id:
-        resp_str = str(response)[:500] if response else 'N/A'
-        print(f"[AGENT-DEBUG] /handle-message agent={request.agent_id} response={resp_str}", flush=True)
+        asyncio.create_task(log_prompt(
+            log_type="agent_call", prompt=request.query, agent_id=request.agent_id,
+            response_text=str(response)[:5000] if response else None,
+        ))
     return response
 
 
 @router.post("/handle-message-json")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
-    if request.agent_id:
-        print(f"[AGENT-DEBUG] /handle-message-json agent={request.agent_id} query={request.query[:200] if request.query else 'N/A'}", flush=True)
     response = await message_service.handle_message_json(request)
     if request.agent_id:
-        resp_str = str(response)[:1000] if response else 'N/A'
-        print(f"[AGENT-DEBUG] /handle-message-json agent={request.agent_id} response={resp_str}", flush=True)
+        asyncio.create_task(log_prompt(
+            log_type="agent_call_json", prompt=request.query, agent_id=request.agent_id,
+            response_text=str(response)[:5000] if response else None,
+        ))
     return response
 
 

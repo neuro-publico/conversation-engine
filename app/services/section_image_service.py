@@ -7,6 +7,7 @@ import time
 import uuid
 from typing import List
 
+from app.db.audit_logger import log_prompt
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
@@ -113,6 +114,13 @@ class SectionImageService:
 
                 RequestTracker.log("MEM", "POST-UPLOAD")
 
+                asyncio.create_task(log_prompt(
+                    log_type="section_image", prompt=prompt, response_url=s3_url,
+                    owner_id=request.owner_id, model="gemini-3.1-flash-image-preview",
+                    provider="gemini", brand_colors=request.brand_colors, status="success",
+                    attempt_number=attempt, elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                    metadata={"cta_buttons": len(cta_buttons), "image_format": request.image_format},
+                ))
                 return SectionImageResponse(
                     s3_url=s3_url,
                     cta_buttons=cta_buttons,
@@ -139,12 +147,23 @@ class SectionImageService:
             )
             s3_url = await self._compress_and_upload(image_bytes, request)
             del image_bytes
+            asyncio.create_task(log_prompt(
+                log_type="section_image", prompt=fallback_prompt, response_url=s3_url,
+                owner_id=request.owner_id, model="gpt-image-1", provider="openai",
+                status="fallback", fallback_used=True,
+                elapsed_ms=int((time.monotonic() - t_start) * 1000),
+            ))
             return SectionImageResponse(
                 s3_url=s3_url,
                 cta_buttons=[],
             )
         except Exception as e:
             logger.error(f"Section image fallback also failed: {e}")
+            asyncio.create_task(log_prompt(
+                log_type="section_image", prompt=prompt, owner_id=request.owner_id,
+                status="error", error_message=str(last_error),
+                elapsed_ms=int((time.monotonic() - t_start) * 1000),
+            ))
             raise last_error
 
     def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
