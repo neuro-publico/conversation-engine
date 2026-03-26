@@ -21,3 +21,7 @@ class SectionImageRequest(BaseModel):
     detect_cta_buttons: bool = True
     owner_id: str
     target_kb: int = 150
+    brand_colors: Optional[list[str]] = None
+    edit_mode: bool = False
+    current_section_url: Optional[str] = None
+    reference_image_url: Optional[str] = None

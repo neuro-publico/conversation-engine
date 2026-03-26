@@ -7,6 +7,7 @@ import time
 import uuid
 from typing import List
 
+from app.db.audit_logger import log_prompt
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
@@ -37,11 +38,34 @@ ABSOLUTE RULES:
 - This is a LANDING PAGE SECTION — it must look like part of a real e-commerce funnel, NOT a social media ad
 - Mobile-first vertical layout
 - All text in the specified language
-- Professional, high-quality, ready-to-use section
+- Professional, high-quality, ready-to-use section with good legibility and well-positioned elements
 - No mockup frames, browser windows, or device frames
+- Create well-structured, well-diagrammed designs based on the reference template — clear visual hierarchy, readable text, and balanced element placement
+- Adapt ALL text to the specific product — do NOT copy text from the template. Your priority is to communicate the product clearly and persuasively from the provided sales angle
 - Adapt colors to match the real product's packaging colors automatically
+- If brand colors are provided, they DEFINE the color identity — adapt the template's colors to these brand tones so all sections share a consistent look. Respect the template's light/dark logic (dark stays dark, light stays light) but in the brand's color tones
 - If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging
 - If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or number format"""
+
+EDIT_SYSTEM_PROMPT = """You are an expert e-commerce landing page designer. You are EDITING an existing section image.
+
+You will receive:
+1. The CURRENT SECTION IMAGE — this is the image you must modify
+2. (Optional) A REFERENCE IMAGE — use as visual inspiration for the requested changes
+3. (Optional) A PRODUCT PHOTO — the real product shown in this section. This is the real product — maintain its exact appearance.
+
+EDITING RULES:
+- Using the provided section image, apply ONLY the changes described in the user's instructions
+- Keep everything else exactly the same, preserving the original style, lighting, composition, and layout
+- Do NOT regenerate the image from scratch — this must be a targeted modification
+- Do not alter the composition or add/remove elements unless explicitly requested
+- If the section contains a real product photo, preserve its identity exactly — never redraw, reinterpret, or re-render it
+- If a REFERENCE IMAGE is provided, use it as visual inspiration for the changes, but apply them to the EXISTING section
+- The result should look like a natural evolution of the current section, not a completely new design
+- Mobile-first vertical layout
+- Professional, high-quality, ready-to-use section with good legibility and well-positioned elements
+- If brand colors are provided, use them for any new or modified design elements
+- If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or format"""
 
 CTA_DETECTION_INSTRUCTION = """
 
@@ -72,8 +96,6 @@ class SectionImageService:
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
-        print(f"[PROMPT-DEBUG] images={image_urls} prompt_length={len(prompt)}\n---PROMPT START---\n{prompt}\n---PROMPT END---", flush=True)
-
         extra_params = {
             "aspect_ratio": request.image_format,
             "image_size": "2K",
@@ -110,6 +132,13 @@ class SectionImageService:
 
                 RequestTracker.log("MEM", "POST-UPLOAD")
 
+                asyncio.create_task(log_prompt(
+                    log_type="section_image", prompt=prompt, response_url=s3_url,
+                    owner_id=request.owner_id, model="gemini-3.1-flash-image-preview",
+                    provider="gemini", brand_colors=request.brand_colors, status="success",
+                    attempt_number=attempt, elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                    metadata={"cta_buttons": len(cta_buttons), "image_format": request.image_format},
+                ))
                 return SectionImageResponse(
                     s3_url=s3_url,
                     cta_buttons=cta_buttons,
@@ -136,16 +165,27 @@ class SectionImageService:
             )
             s3_url = await self._compress_and_upload(image_bytes, request)
             del image_bytes
+            asyncio.create_task(log_prompt(
+                log_type="section_image", prompt=fallback_prompt, response_url=s3_url,
+                owner_id=request.owner_id, model="gpt-image-1", provider="openai",
+                status="fallback", fallback_used=True,
+                elapsed_ms=int((time.monotonic() - t_start) * 1000),
+            ))
             return SectionImageResponse(
                 s3_url=s3_url,
                 cta_buttons=[],
             )
         except Exception as e:
             logger.error(f"Section image fallback also failed: {e}")
+            asyncio.create_task(log_prompt(
+                log_type="section_image", prompt=prompt, owner_id=request.owner_id,
+                status="error", error_message=str(last_error),
+                elapsed_ms=int((time.monotonic() - t_start) * 1000),
+            ))
             raise last_error
 
     def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
-        parts = [SYSTEM_PROMPT]
+        parts = [EDIT_SYSTEM_PROMPT] if request.edit_mode else [SYSTEM_PROMPT]
 
         if include_cta_instruction and request.detect_cta_buttons:
             parts.append(CTA_DETECTION_INSTRUCTION)
@@ -167,11 +207,16 @@ class SectionImageService:
             angle_block += f"\n- Adapt headlines, benefits, CTAs, and all copy to match this sales angle"
             parts.append(angle_block)
 
+        def _clean_price(price_str: str) -> str:
+            """Remove trailing ,00 or .00 decimals only at END (e.g. $ 140.000,00 → $ 140.000)"""
+            import re
+            return re.sub(r'[,.]00$', '', price_str) if price_str else price_str
+
         if request.price_formatted:
             price_block = "\nPRICING (use these EXACT formatted values wherever the template shows prices — do NOT change the format or currency):"
             if request.price_fake_formatted:
-                price_block += f"\n- Original price (show crossed out): {request.price_fake_formatted}"
-            price_block += f"\n- Sale price (show large and prominent): {request.price_formatted}"
+                price_block += f"\n- Original price (show crossed out): {_clean_price(request.price_fake_formatted)}"
+            price_block += f"\n- Sale price (show large and prominent): {_clean_price(request.price_formatted)}"
             parts.append(price_block)
         elif request.price is not None:
             price_block = "\nPRICING (use these exact values wherever the template shows prices):"
@@ -180,6 +225,14 @@ class SectionImageService:
             price_block += f"\n- Sale price (show large and prominent): ${request.price:,.0f}"
             parts.append(price_block)
 
+        if request.brand_colors and len(request.brand_colors) > 0:
+            colors_str = ", ".join(request.brand_colors)
+            colors_block = f"""\nBRAND COLORS (extracted from the product — these define the color identity):
+- Colors: {colors_str}
+
+These colors MUST be used to determine the overall tone of the image — accents, buttons, highlights, borders, gradients. The template may have different colors, but you must ADAPT it to use these brand tones so all sections share a consistent visual identity. Respect the template's light/dark logic (if the template has a dark background, keep it dark but in these brand tones; if light, keep it light)."""
+            parts.append(colors_block)
+
         if request.user_instructions:
             parts.append(f"\nAdditional instructions: {request.user_instructions}")
 
@@ -187,10 +240,20 @@ class SectionImageService:
 
     def _collect_image_urls(self, request: SectionImageRequest) -> list[str]:
         urls = []
-        if request.template_image_url:
-            urls.append(request.template_image_url)
-        if request.product_image_url:
-            urls.append(request.product_image_url)
+        if request.edit_mode:
+            # Edit mode: current section first, then reference, then product
+            if request.current_section_url:
+                urls.append(request.current_section_url)
+            if request.reference_image_url:
+                urls.append(request.reference_image_url)
+            if request.product_image_url:
+                urls.append(request.product_image_url)
+        else:
+            # Creation mode: template first, then product
+            if request.template_image_url:
+                urls.append(request.template_image_url)
+            if request.product_image_url:
+                urls.append(request.product_image_url)
         return urls
 
     def _parse_cta_buttons(self, text: str) -> List[CtaButtonResponse]:

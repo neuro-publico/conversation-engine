@@ -1,7 +1,10 @@
+import asyncio
 import base64
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.db.audit_logger import log_prompt
 
 from app.middlewares.auth_middleware import require_api_key, require_auth
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
@@ -47,12 +50,22 @@ async def get_cities_by_department(
 @router.post("/handle-message")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
     response = await message_service.handle_message(request)
+    if request.agent_id:
+        asyncio.create_task(log_prompt(
+            log_type="agent_call", prompt=request.query, agent_id=request.agent_id,
+            response_text=str(response)[:5000] if response else None,
+        ))
     return response
 
 
 @router.post("/handle-message-json")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
     response = await message_service.handle_message_json(request)
+    if request.agent_id:
+        asyncio.create_task(log_prompt(
+            log_type="agent_call_json", prompt=request.query, agent_id=request.agent_id,
+            response_text=str(response)[:5000] if response else None,
+        ))
     return response
 
 
@@ -206,6 +219,22 @@ async def generate_section_image(
 ):
     from app.services.section_image_service import SectionImageService
 
+    service = SectionImageService()
+    response = await service.generate_section_image(section_request)
+    return response
+
+
+@router.post("/edit-section-image")
+@require_auth
+async def edit_section_image(
+    request: Request,
+    section_request: SectionImageRequest,
+):
+    from app.services.section_image_service import SectionImageService
+
+    user_info = request.state.user_info
+    section_request.owner_id = user_info.get("data", {}).get("id", section_request.owner_id)
+    section_request.edit_mode = True
     service = SectionImageService()
     response = await service.generate_section_image(section_request)
     return response
