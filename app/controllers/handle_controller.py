@@ -46,15 +46,23 @@ async def get_cities_by_department(
 
 @router.post("/handle-message")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
+    if request.agent_id:
+        print(f"[AGENT-DEBUG] /handle-message agent={request.agent_id} query={request.query[:200] if request.query else 'N/A'}", flush=True)
     response = await message_service.handle_message(request)
+    if request.agent_id:
+        resp_str = str(response)[:500] if response else 'N/A'
+        print(f"[AGENT-DEBUG] /handle-message agent={request.agent_id} response={resp_str}", flush=True)
     return response
 
 
 @router.post("/handle-message-json")
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
+    if request.agent_id:
+        print(f"[AGENT-DEBUG] /handle-message-json agent={request.agent_id} query={request.query[:200] if request.query else 'N/A'}", flush=True)
     response = await message_service.handle_message_json(request)
-    if request.agent_id and "design" in request.agent_id.lower():
-        print(f"[DESIGN-DEBUG] agent={request.agent_id} response={response}", flush=True)
+    if request.agent_id:
+        resp_str = str(response)[:1000] if response else 'N/A'
+        print(f"[AGENT-DEBUG] /handle-message-json agent={request.agent_id} response={resp_str}", flush=True)
     return response
 
 
