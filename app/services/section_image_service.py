@@ -37,10 +37,12 @@ ABSOLUTE RULES:
 - This is a LANDING PAGE SECTION — it must look like part of a real e-commerce funnel, NOT a social media ad
 - Mobile-first vertical layout
 - All text in the specified language
-- Professional, high-quality, ready-to-use section
+- Professional, high-quality, ready-to-use section with good legibility and well-positioned elements
 - No mockup frames, browser windows, or device frames
+- Create well-structured, well-diagrammed designs based on the reference template — clear visual hierarchy, readable text, and balanced element placement
+- Adapt ALL text to the specific product — do NOT copy text from the template. Your priority is to communicate the product clearly and persuasively from the provided sales angle
 - Adapt colors to match the real product's packaging colors automatically
-- If brand colors are provided, use them as the primary reference for the design palette — buttons, accents, borders, and highlights should harmonize with these colors
+- If brand colors are provided, they DEFINE the color identity — adapt the template's colors to these brand tones so all sections share a consistent look. Respect the template's light/dark logic (dark stays dark, light stays light) but in the brand's color tones
 - If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging
 - If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or number format"""
 
@@ -188,10 +190,10 @@ class SectionImageService:
 
         if request.brand_colors and len(request.brand_colors) > 0:
             colors_str = ", ".join(request.brand_colors)
-            colors_block = f"""\nBRAND COLORS (reference palette extracted from the product):
+            colors_block = f"""\nBRAND COLORS (extracted from the product — these define the color identity):
 - Colors: {colors_str}
 
-Use these as a color reference to create visual harmony between the section and the product. The design should feel like it belongs to the same brand, but you have creative freedom to choose contrast, backgrounds, and accents that work best for each specific section layout."""
+These colors MUST be used to determine the overall tone of the image — accents, buttons, highlights, borders, gradients. The template may have different colors, but you must ADAPT it to use these brand tones so all sections share a consistent visual identity. Respect the template's light/dark logic (if the template has a dark background, keep it dark but in these brand tones; if light, keep it light)."""
             parts.append(colors_block)
 
         if request.user_instructions:
