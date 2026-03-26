@@ -47,6 +47,26 @@ ABSOLUTE RULES:
 - If a sales angle is provided, ALL text (headlines, benefits, CTAs, badges) must align with that angle's tone and messaging
 - If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or number format"""
 
+EDIT_SYSTEM_PROMPT = """You are an expert e-commerce landing page designer. You are EDITING an existing section image.
+
+You will receive:
+1. The CURRENT SECTION IMAGE — this is the image you must modify
+2. (Optional) A REFERENCE IMAGE — use as visual inspiration for the requested changes
+3. (Optional) A PRODUCT PHOTO — the real product shown in this section. This is the real product — maintain its exact appearance.
+
+EDITING RULES:
+- Using the provided section image, apply ONLY the changes described in the user's instructions
+- Keep everything else exactly the same, preserving the original style, lighting, composition, and layout
+- Do NOT regenerate the image from scratch — this must be a targeted modification
+- Do not alter the composition or add/remove elements unless explicitly requested
+- If the section contains a real product photo, preserve its identity exactly — never redraw, reinterpret, or re-render it
+- If a REFERENCE IMAGE is provided, use it as visual inspiration for the changes, but apply them to the EXISTING section
+- The result should look like a natural evolution of the current section, not a completely new design
+- Mobile-first vertical layout
+- Professional, high-quality, ready-to-use section with good legibility and well-positioned elements
+- If brand colors are provided, use them for any new or modified design elements
+- If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or format"""
+
 CTA_DETECTION_INSTRUCTION = """
 
 [INSTRUCCIÓN OBLIGATORIA DE TEXTO]
@@ -167,7 +187,7 @@ class SectionImageService:
             raise last_error
 
     def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
-        parts = [SYSTEM_PROMPT]
+        parts = [EDIT_SYSTEM_PROMPT] if request.edit_mode else [SYSTEM_PROMPT]
 
         if include_cta_instruction and request.detect_cta_buttons:
             parts.append(CTA_DETECTION_INSTRUCTION)
@@ -222,10 +242,20 @@ These colors MUST be used to determine the overall tone of the image — accents
 
     def _collect_image_urls(self, request: SectionImageRequest) -> list[str]:
         urls = []
-        if request.template_image_url:
-            urls.append(request.template_image_url)
-        if request.product_image_url:
-            urls.append(request.product_image_url)
+        if request.edit_mode:
+            # Edit mode: current section first, then reference, then product
+            if request.current_section_url:
+                urls.append(request.current_section_url)
+            if request.reference_image_url:
+                urls.append(request.reference_image_url)
+            if request.product_image_url:
+                urls.append(request.product_image_url)
+        else:
+            # Creation mode: template first, then product
+            if request.template_image_url:
+                urls.append(request.template_image_url)
+            if request.product_image_url:
+                urls.append(request.product_image_url)
         return urls
 
     def _parse_cta_buttons(self, text: str) -> List[CtaButtonResponse]:

@@ -224,6 +224,22 @@ async def generate_section_image(
     return response
 
 
+@router.post("/edit-section-image")
+@require_auth
+async def edit_section_image(
+    request: Request,
+    section_request: SectionImageRequest,
+):
+    from app.services.section_image_service import SectionImageService
+
+    user_info = request.state.user_info
+    section_request.owner_id = user_info.get("data", {}).get("id", section_request.owner_id)
+    section_request.edit_mode = True
+    service = SectionImageService()
+    response = await service.generate_section_image(section_request)
+    return response
+
+
 @router.get("/health")
 async def health_check():
     return {"status": "OK"}
