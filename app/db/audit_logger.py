@@ -20,7 +20,7 @@ async def init_pool():
             port=int(os.getenv("AUDIT_DB_PORT", "5432")),
             user=os.getenv("AUDIT_DB_USER", ""),
             password=os.getenv("AUDIT_DB_PASSWORD", ""),
-            database=os.getenv("AUDIT_DB_NAME", "prompt_logs"),
+            database=os.getenv("AUDIT_DB_NAME", "analytics"),
             min_size=2,
             max_size=10,
             command_timeout=10,
