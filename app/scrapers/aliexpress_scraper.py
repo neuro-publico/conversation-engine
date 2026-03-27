@@ -27,10 +27,11 @@ class AliexpressScraper(ScraperInterface):
             if e.response.status_code == 429 and self.message_service:
                 logger.warning("AliExpress RapidAPI rate limited (429), falling back to IAScraper")
                 from app.scrapers.ia_scraper import IAScraper
+
                 return await IAScraper(message_service=self.message_service).scrape(url, domain)
             raise HTTPException(
                 status_code=e.response.status_code,
-                detail=f"Error al consultar AliExpress API: {e.response.status_code}"
+                detail=f"Error al consultar AliExpress API: {e.response.status_code}",
             )
 
         try:

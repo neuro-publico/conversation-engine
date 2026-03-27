@@ -107,11 +107,11 @@ class ImageService(ImageServiceInterface):
                     last_error = e
                     logger.warning(f"Image attempt {attempt}/{max_retries} failed: {e}")
                     try:
-                        del image_content
+                        del image_content  # noqa: F821
                     except NameError:
                         pass
                     try:
-                        del content_base64
+                        del content_base64  # noqa: F821
                     except NameError:
                         pass
 

@@ -132,13 +132,21 @@ class SectionImageService:
 
                 RequestTracker.log("MEM", "POST-UPLOAD")
 
-                asyncio.create_task(log_prompt(
-                    log_type="section_image", prompt=prompt, response_url=s3_url,
-                    owner_id=request.owner_id, model="gemini-3.1-flash-image-preview",
-                    provider="gemini", brand_colors=request.brand_colors, status="success",
-                    attempt_number=attempt, elapsed_ms=int((time.monotonic() - t_start) * 1000),
-                    metadata={"cta_buttons": len(cta_buttons), "image_format": request.image_format},
-                ))
+                asyncio.create_task(
+                    log_prompt(
+                        log_type="section_image",
+                        prompt=prompt,
+                        response_url=s3_url,
+                        owner_id=request.owner_id,
+                        model="gemini-3.1-flash-image-preview",
+                        provider="gemini",
+                        brand_colors=request.brand_colors,
+                        status="success",
+                        attempt_number=attempt,
+                        elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                        metadata={"cta_buttons": len(cta_buttons), "image_format": request.image_format},
+                    )
+                )
                 return SectionImageResponse(
                     s3_url=s3_url,
                     cta_buttons=cta_buttons,
@@ -149,7 +157,7 @@ class SectionImageService:
                     f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}"
                 )
                 try:
-                    del image_bytes
+                    del image_bytes  # noqa: F821
                 except NameError:
                     pass
 
@@ -165,23 +173,35 @@ class SectionImageService:
             )
             s3_url = await self._compress_and_upload(image_bytes, request)
             del image_bytes
-            asyncio.create_task(log_prompt(
-                log_type="section_image", prompt=fallback_prompt, response_url=s3_url,
-                owner_id=request.owner_id, model="gpt-image-1", provider="openai",
-                status="fallback", fallback_used=True,
-                elapsed_ms=int((time.monotonic() - t_start) * 1000),
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="section_image",
+                    prompt=fallback_prompt,
+                    response_url=s3_url,
+                    owner_id=request.owner_id,
+                    model="gpt-image-1",
+                    provider="openai",
+                    status="fallback",
+                    fallback_used=True,
+                    elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                )
+            )
             return SectionImageResponse(
                 s3_url=s3_url,
                 cta_buttons=[],
             )
         except Exception as e:
             logger.error(f"Section image fallback also failed: {e}")
-            asyncio.create_task(log_prompt(
-                log_type="section_image", prompt=prompt, owner_id=request.owner_id,
-                status="error", error_message=str(last_error),
-                elapsed_ms=int((time.monotonic() - t_start) * 1000),
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="section_image",
+                    prompt=prompt,
+                    owner_id=request.owner_id,
+                    status="error",
+                    error_message=str(last_error),
+                    elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                )
+            )
             raise last_error
 
     def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
@@ -210,7 +230,8 @@ class SectionImageService:
         def _clean_price(price_str: str) -> str:
             """Remove trailing ,00 or .00 decimals only at END (e.g. $ 140.000,00 → $ 140.000)"""
             import re
-            return re.sub(r'[,.]00$', '', price_str) if price_str else price_str
+
+            return re.sub(r"[,.]00$", "", price_str) if price_str else price_str
 
         if request.price_formatted:
             price_block = "\nPRICING (use these EXACT formatted values wherever the template shows prices — do NOT change the format or currency):"
