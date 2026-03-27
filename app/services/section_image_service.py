@@ -12,6 +12,7 @@ from app.externals.callback.callback_client import post_callback
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
+from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
@@ -82,17 +83,19 @@ Después de escribir esto, genera la imagen."""
 class SectionImageService:
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
-        RequestTracker.custom_active += 1
-        t_start = time.monotonic()
-        RequestTracker.log("MEM", "START")
+        semaphore = get_image_semaphore()
+        async with semaphore:
+            RequestTracker.custom_active += 1
+            t_start = time.monotonic()
+            RequestTracker.log("MEM", "START")
 
-        try:
-            return await self._do_generate(request, t_start)
-        finally:
-            elapsed = time.monotonic() - t_start
-            RequestTracker.custom_active -= 1
-            RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
-            gc.collect()
+            try:
+                return await self._do_generate(request, t_start)
+            finally:
+                elapsed = time.monotonic() - t_start
+                RequestTracker.custom_active -= 1
+                RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
+                gc.collect()
 
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
