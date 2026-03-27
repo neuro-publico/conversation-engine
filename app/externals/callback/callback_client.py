@@ -33,4 +33,6 @@ async def post_callback(
             if attempt < max_retries:
                 await asyncio.sleep(2**attempt)
 
-    logger.error(f"Callback POST failed after {max_retries} attempts to {url}")
+    error_msg = f"Callback POST failed after {max_retries} attempts to {url}"
+    logger.error(error_msg)
+    raise RuntimeError(error_msg)

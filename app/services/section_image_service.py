@@ -343,4 +343,30 @@ These colors MUST be used to determine the overall tone of the image — accents
                 "metadata": callback_metadata or {},
             }
 
-        await post_callback(callback_url, payload)
+        try:
+            await post_callback(callback_url, payload)
+            asyncio.create_task(
+                log_prompt(
+                    log_type="callback_result",
+                    prompt=f"callback to {callback_url}",
+                    owner_id=request.owner_id,
+                    model="callback",
+                    provider="httpx",
+                    status="success",
+                    metadata={"request_id": request_id, "payload_status": payload.get("status")},
+                )
+            )
+        except Exception as e:
+            logger.error(f"Callback failed for request_id={request_id}: {type(e).__name__}: {e}")
+            asyncio.create_task(
+                log_prompt(
+                    log_type="callback_result",
+                    prompt=f"callback to {callback_url}",
+                    owner_id=request.owner_id,
+                    model="callback",
+                    provider="httpx",
+                    status="error",
+                    error_message=f"{type(e).__name__}: {e}",
+                    metadata={"request_id": request_id},
+                )
+            )
