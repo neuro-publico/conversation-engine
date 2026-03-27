@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel
 
@@ -25,3 +25,5 @@ class SectionImageRequest(BaseModel):
     edit_mode: bool = False
     current_section_url: Optional[str] = None
     reference_image_url: Optional[str] = None
+    callback_url: Optional[str] = None
+    callback_metadata: Optional[Dict[str, str]] = None
