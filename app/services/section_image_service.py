@@ -5,12 +5,14 @@ import logging
 import re
 import time
 import uuid
-from typing import List
+from typing import Dict, List, Optional
 
 from app.db.audit_logger import log_prompt
+from app.externals.callback.callback_client import post_callback
 from app.externals.images.image_client import google_image_with_text, openai_image_edit
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.s3_upload_client import upload_file
+from app.helpers.concurrency import get_image_semaphore
 from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
@@ -81,17 +83,19 @@ Después de escribir esto, genera la imagen."""
 class SectionImageService:
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
-        RequestTracker.custom_active += 1
-        t_start = time.monotonic()
-        RequestTracker.log("MEM", "START")
+        semaphore = get_image_semaphore()
+        async with semaphore:
+            RequestTracker.custom_active += 1
+            t_start = time.monotonic()
+            RequestTracker.log("MEM", "START")
 
-        try:
-            return await self._do_generate(request, t_start)
-        finally:
-            elapsed = time.monotonic() - t_start
-            RequestTracker.custom_active -= 1
-            RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
-            gc.collect()
+            try:
+                return await self._do_generate(request, t_start)
+            finally:
+                elapsed = time.monotonic() - t_start
+                RequestTracker.custom_active -= 1
+                RequestTracker.log("MEM", "END", f"elapsed={elapsed:.1f}s")
+                gc.collect()
 
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
         prompt = self._build_prompt(request)
@@ -312,3 +316,57 @@ These colors MUST be used to determine the overall tone of the image — accents
             )
         )
         return result.s3_url
+
+    async def generate_and_callback(
+        self,
+        request: SectionImageRequest,
+        request_id: str,
+        callback_url: str,
+        callback_metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+        try:
+            response = await self.generate_section_image(request)
+            payload = {
+                "status": "success",
+                "request_id": request_id,
+                "s3_url": response.s3_url,
+                "cta_buttons": [btn.model_dump() for btn in response.cta_buttons],
+                "metadata": callback_metadata or {},
+            }
+        except Exception as e:
+            logger.error(f"Async section image generation failed (request_id={request_id}): {type(e).__name__}: {e}")
+            payload = {
+                "status": "error",
+                "request_id": request_id,
+                "error": str(e) or "unknown",
+                "error_type": type(e).__name__,
+                "metadata": callback_metadata or {},
+            }
+
+        try:
+            await post_callback(callback_url, payload)
+            asyncio.create_task(
+                log_prompt(
+                    log_type="callback_result",
+                    prompt=f"callback to {callback_url}",
+                    owner_id=request.owner_id,
+                    model="callback",
+                    provider="httpx",
+                    status="success",
+                    metadata={"request_id": request_id, "payload_status": payload.get("status")},
+                )
+            )
+        except Exception as e:
+            logger.error(f"Callback failed for request_id={request_id}: {type(e).__name__}: {e}")
+            asyncio.create_task(
+                log_prompt(
+                    log_type="callback_result",
+                    prompt=f"callback to {callback_url}",
+                    owner_id=request.owner_id,
+                    model="callback",
+                    provider="httpx",
+                    status="error",
+                    error_message=f"{type(e).__name__}: {e}",
+                    metadata={"request_id": request_id},
+                )
+            )
