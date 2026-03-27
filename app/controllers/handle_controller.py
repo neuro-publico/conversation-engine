@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import uuid
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from app.db.audit_logger import log_prompt
 from app.middlewares.auth_middleware import require_api_key, require_auth
@@ -229,6 +231,35 @@ async def generate_section_image(
     service = SectionImageService()
     response = await service.generate_section_image(section_request)
     return response
+
+
+@router.post("/generate-section-image/async/api-key")
+@require_api_key
+async def generate_section_image_async(
+    request: Request,
+    section_request: SectionImageRequest,
+):
+    from app.services.section_image_service import SectionImageService
+
+    if not section_request.callback_url:
+        raise HTTPException(status_code=400, detail="callback_url is required for async generation")
+
+    request_id = str(uuid.uuid4())
+    service = SectionImageService()
+
+    asyncio.create_task(
+        service.generate_and_callback(
+            request=section_request,
+            request_id=request_id,
+            callback_url=section_request.callback_url,
+            callback_metadata=section_request.callback_metadata,
+        )
+    )
+
+    return JSONResponse(
+        status_code=202,
+        content={"request_id": request_id, "status": "accepted"},
+    )
 
 
 @router.post("/edit-section-image")
