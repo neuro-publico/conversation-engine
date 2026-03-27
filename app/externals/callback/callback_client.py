@@ -31,6 +31,6 @@ async def post_callback(
         except Exception as e:
             logger.warning(f"Callback POST attempt {attempt}/{max_retries} failed: {type(e).__name__}: {e}")
             if attempt < max_retries:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
     logger.error(f"Callback POST failed after {max_retries} attempts to {url}")
