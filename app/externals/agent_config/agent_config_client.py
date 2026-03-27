@@ -10,7 +10,8 @@ async def get_agent(data: AgentConfigRequest) -> AgentConfigResponse:
     url = f"{HOST_AGENT_CONFIG}{endpoint}"
     headers = {"Content-Type": "application/json"}
 
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(timeout=60.0, connect=30.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(url, json=data.model_dump(), headers=headers)
         response.raise_for_status()
 

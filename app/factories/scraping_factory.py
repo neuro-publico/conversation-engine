@@ -25,7 +25,7 @@ class ScrapingFactory:
         elif "alibaba" in domain:
             return AlibabaScraper()
         elif "aliexpress" in domain:
-            return AliexpressScraper()
+            return AliexpressScraper(message_service=self.message_service)
         elif "cjdropshipping" in domain:
             return CJScraper()
         elif "dropi" in domain:

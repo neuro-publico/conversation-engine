@@ -1,6 +1,9 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.controllers.handle_controller import router
+from app.db.audit_logger import init_pool, close_pool
 from app.managers.conversation_manager import ConversationManager
 from app.managers.conversation_manager_interface import ConversationManagerInterface
 from app.services.image_service import ImageService
@@ -14,10 +17,19 @@ from app.services.video_service_interface import VideoServiceInterface
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_pool()
+    yield
+    await close_pool()
+
+
 app = FastAPI(
     title="Conversational Agent API",
     description="API for agent ai",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.include_router(router)
