@@ -5,7 +5,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.db.audit_logger import log_prompt
-
 from app.middlewares.auth_middleware import require_api_key, require_auth
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
@@ -51,10 +50,14 @@ async def get_cities_by_department(
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
     response = await message_service.handle_message(request)
     if request.agent_id:
-        asyncio.create_task(log_prompt(
-            log_type="agent_call", prompt=request.query, agent_id=request.agent_id,
-            response_text=str(response)[:5000] if response else None,
-        ))
+        asyncio.create_task(
+            log_prompt(
+                log_type="agent_call",
+                prompt=request.query,
+                agent_id=request.agent_id,
+                response_text=str(response)[:5000] if response else None,
+            )
+        )
     return response
 
 
@@ -62,10 +65,14 @@ async def handle_message(request: MessageRequest, message_service: MessageServic
 async def handle_message(request: MessageRequest, message_service: MessageServiceInterface = Depends()):
     response = await message_service.handle_message_json(request)
     if request.agent_id:
-        asyncio.create_task(log_prompt(
-            log_type="agent_call_json", prompt=request.query, agent_id=request.agent_id,
-            response_text=str(response)[:5000] if response else None,
-        ))
+        asyncio.create_task(
+            log_prompt(
+                log_type="agent_call_json",
+                prompt=request.query,
+                agent_id=request.agent_id,
+                response_text=str(response)[:5000] if response else None,
+            )
+        )
     return response
 
 
