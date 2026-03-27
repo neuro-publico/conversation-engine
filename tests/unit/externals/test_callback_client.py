@@ -40,7 +40,7 @@ class TestCallbackClient:
 
     @pytest.mark.unit
     async def test_post_callback_retries_on_failure(self, payload):
-        """Debe reintentar hasta max_retries veces en caso de error."""
+        """Debe reintentar hasta max_retries veces y lanzar RuntimeError."""
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(side_effect=httpx.HTTPError("Connection error"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -48,7 +48,8 @@ class TestCallbackClient:
 
         with patch("app.externals.callback.callback_client.httpx.AsyncClient", return_value=mock_client):
             with patch("app.externals.callback.callback_client.asyncio.sleep", new_callable=AsyncMock):
-                await post_callback("https://example.com/webhook", payload, max_retries=3, api_key="test-key")
+                with pytest.raises(RuntimeError, match="Callback POST failed after 3 attempts"):
+                    await post_callback("https://example.com/webhook", payload, max_retries=3, api_key="test-key")
 
         assert mock_client.post.call_count == 3
 
