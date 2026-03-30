@@ -83,7 +83,7 @@ async def get_cities_by_department(department_id: int, rate_type: str, country: 
     dropi_host = get_dropi_host(country)
     url = f"{dropi_host}/integrations/trajectory/bycity"
     _log_dropi_request("POST", url, headers, payload)
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             response = await client.post(url, headers=headers, json=payload)
             response.raise_for_status()
@@ -91,4 +91,11 @@ async def get_cities_by_department(department_id: int, rate_type: str, country: 
         except httpx.HTTPStatusError as e:
             raise Exception(f"API request failed with status {e.response.status_code}: {e.response.text}")
         except httpx.RequestError as e:
-            raise Exception(f"API request failed: {str(e)}")
+            logger.error(
+                "Dropi API request error for department_id=%s country=%s: %s (%s)",
+                department_id,
+                country_normalized,
+                str(e),
+                type(e).__name__,
+            )
+            raise Exception(f"API request failed: {type(e).__name__}: {str(e)}")
