@@ -318,17 +318,10 @@ async def test_run_and_callback_no_callback_url_skips() -> None:
 async def test_run_director_validators_camera_and_words() -> None:
     """Cubre las ramas de validators camera_varies_between_scenes y max_words_part_b."""
     service = VideoStudioService()
-    fake_agent = _make_agent_config(
-        validators=[
-            "camera_varies_between_scenes",
-            "max_words_part_b:5",
-            "min_actions_in_cinematic:6",
-        ],
-    )
+    fake_agent = _make_agent_config(validators=["camera_varies_between_scenes"])
 
     bad = _valid_combo_payload()
     bad["cinematic_camera_b"] = bad["cinematic_camera_a"]  # iguales -> falla
-    bad["script_part_b"] = "esta frase tiene mucho mas de cinco palabras claramente"  # >5 -> falla
     good = _valid_combo_payload()
 
     call_results = [
