@@ -218,3 +218,138 @@ async def test_run_director_validator_self_correction() -> None:
 
     assert result.ends_with_product_name is True
     assert mock_gemini.await_count == 2
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_run_and_callback_success_posts_callback() -> None:
+    service = VideoStudioService()
+    fake_agent = _make_agent_config()
+    fake_payload = _valid_combo_payload()
+
+    request = _make_request()
+    request.callback_url = "https://hook.example.com/cb"
+    request.callback_metadata = {"draft_ref": "abc"}
+
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+        ),
+        patch(
+            "app.services.video_studio_service.post_callback",
+            new=AsyncMock(return_value=None),
+        ) as mock_cb,
+    ):
+        await service.run_and_callback(request)
+
+    mock_cb.assert_awaited_once()
+    url, body = mock_cb.await_args.args
+    assert url == "https://hook.example.com/cb"
+    assert body["status"] == "success"
+    assert body["selected_pattern_key"] == "smug_villain"
+    assert body["director_payload"]["script_part_a"]
+    assert body["metadata"] == {"draft_ref": "abc"}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_run_and_callback_error_posts_error_payload() -> None:
+    service = VideoStudioService()
+    fake_agent = _make_agent_config()
+
+    request = _make_request()
+    request.callback_url = "https://hook.example.com/cb"
+
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(side_effect=GeminiTextError("boom", status=500, raw="oops")),
+        ),
+        patch(
+            "app.services.video_studio_service.post_callback",
+            new=AsyncMock(return_value=None),
+        ) as mock_cb,
+    ):
+        await service.run_and_callback(request)
+
+    mock_cb.assert_awaited_once()
+    _url, body = mock_cb.await_args.args
+    assert body["status"] == "error"
+    assert body["error_step"] == "director"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_run_and_callback_no_callback_url_skips() -> None:
+    service = VideoStudioService()
+    fake_agent = _make_agent_config()
+    fake_payload = _valid_combo_payload()
+
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+        ),
+        patch(
+            "app.services.video_studio_service.post_callback",
+            new=AsyncMock(return_value=None),
+        ) as mock_cb,
+    ):
+        await service.run_and_callback(_make_request())  # sin callback_url
+
+    mock_cb.assert_not_awaited()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_run_director_validators_camera_and_words() -> None:
+    """Cubre las ramas de validators camera_varies_between_scenes y max_words_part_b."""
+    service = VideoStudioService()
+    fake_agent = _make_agent_config(
+        validators=[
+            "camera_varies_between_scenes",
+            "max_words_part_b:5",
+            "min_actions_in_cinematic:6",
+        ],
+    )
+
+    bad = _valid_combo_payload()
+    bad["cinematic_camera_b"] = bad["cinematic_camera_a"]  # iguales -> falla
+    bad["script_part_b"] = "esta frase tiene mucho mas de cinco palabras claramente"  # >5 -> falla
+    good = _valid_combo_payload()
+
+    call_results = [
+        (bad, {"usageMetadata": {}}),
+        (good, {"usageMetadata": {}}),
+    ]
+
+    async def fake_call(**_kwargs: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        return call_results.pop(0)
+
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            side_effect=fake_call,
+        ) as mock_gemini,
+    ):
+        result = await service.run_director(_make_request())
+
+    assert result.cinematic_camera_a != result.cinematic_camera_b
+    assert mock_gemini.await_count == 2
