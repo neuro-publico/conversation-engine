@@ -21,6 +21,7 @@ from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from app.requests.section_image_request import SectionImageRequest
 from app.requests.variation_image_request import VariationImageRequest
+from app.requests.video_studio_draft_request import VideoStudioDraftRequest
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
 from app.services.dropi_service import DropiService
@@ -276,6 +277,70 @@ async def edit_section_image(
     service = SectionImageService()
     response = await service.generate_section_image(section_request)
     return response
+
+
+@router.post("/video-studio/draft/api-key")
+@require_api_key
+async def video_studio_draft_sync(
+    request: Request,
+    draft_request: VideoStudioDraftRequest,
+):
+    """Sync endpoint: ejecuta el Director Creativo y devuelve el payload directo.
+
+    Sirve para testing con curl. En producción el frontend usa el endpoint async
+    de abajo (con callback al ecommerce).
+    """
+    from app.services.video_studio_service import VideoStudioError, VideoStudioService
+
+    service = VideoStudioService()
+    try:
+        payload = await service.run_director(draft_request)
+        return {
+            "status": "success",
+            "reference_id": draft_request.reference_id,
+            "director_payload": payload.model_dump(),
+        }
+    except VideoStudioError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "step": e.step,
+                "reference_id": draft_request.reference_id,
+            },
+        )
+
+
+@router.post("/video-studio/draft/async/api-key")
+@require_api_key
+async def video_studio_draft_async(
+    request: Request,
+    draft_request: VideoStudioDraftRequest,
+):
+    """Async endpoint: lanza el director en background y responde 202 inmediatamente.
+
+    Cuando el director termina (éxito o fallo), POSTea el resultado al
+    `callback_url` provisto en el request. Esta es la forma normal en producción.
+    """
+    from app.services.video_studio_service import VideoStudioService
+
+    if not draft_request.callback_url:
+        raise HTTPException(
+            status_code=400,
+            detail="callback_url is required for async video studio draft generation",
+        )
+
+    service = VideoStudioService()
+    asyncio.create_task(service.run_and_callback(draft_request))
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "reference_id": draft_request.reference_id,
+            "status": "directing",
+            "message": "Director Creative pipeline started.",
+        },
+    )
 
 
 @router.get("/health")
