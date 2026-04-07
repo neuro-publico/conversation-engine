@@ -29,7 +29,7 @@ from app.services.video_studio_service import VideoStudioError, VideoStudioServi
 def _make_agent_config(
     *,
     patterns: List[Dict[str, Any]] = None,
-    validators: List[Dict[str, Any]] = None,
+    validators: List[str] = None,
 ) -> AgentConfigResponse:
     if patterns is None:
         patterns = [
@@ -188,9 +188,7 @@ async def test_run_director_gemini_error_raises_director_step() -> None:
 async def test_run_director_validator_self_correction() -> None:
     """Primer intento falla validator → segundo intento devuelve payload válido."""
     service = VideoStudioService()
-    fake_agent = _make_agent_config(
-        validators=[{"name": "ends_with_product_name"}],
-    )
+    fake_agent = _make_agent_config(validators=["ends_with_product_name"])
 
     bad_payload = _valid_combo_payload()
     bad_payload["ends_with_product_name"] = False
