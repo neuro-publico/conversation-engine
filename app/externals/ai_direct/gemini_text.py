@@ -39,6 +39,17 @@ async def _get_session() -> aiohttp.ClientSession:
     return _gemini_text_session
 
 
+async def close_session() -> None:
+    """Cierra la sesión compartida. Útil para scripts standalone (en el server
+    FastAPI no hace falta porque la sesión persiste durante toda la vida del
+    proceso). En producción se puede llamar desde un shutdown handler si se
+    quiere ser estricto con el cleanup."""
+    global _gemini_text_session
+    if _gemini_text_session is not None and not _gemini_text_session.closed:
+        await _gemini_text_session.close()
+        _gemini_text_session = None
+
+
 class GeminiTextError(Exception):
     """Raised when Gemini text generation fails after all retries."""
 

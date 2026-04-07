@@ -68,10 +68,17 @@ logger = logging.getLogger(__name__)
 class VideoStudioError(Exception):
     """Raised when the Director Creative pipeline fails after retries."""
 
-    def __init__(self, message: str, step: str, raw: Optional[str] = None):
+    def __init__(
+        self,
+        message: str,
+        step: str,
+        raw: Optional[str] = None,
+        last_payload: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(message)
         self.step = step
         self.raw = raw
+        self.last_payload = last_payload
 
 
 # Cámaras válidas para los cinematic_camera_* — debe matchear el enum del system prompt.
@@ -85,28 +92,46 @@ _VALID_CAMERAS = {
     "CRASH_ZOOM",
 }
 
-# Verbos en mayúscula que cuentan como "acción física" para el validator
-# min_actions_in_cinematic. Lista deliberadamente amplia.
+# Verbos que cuentan como "acción física" para el validator min_actions_in_cinematic.
+# Case-insensitive (Gemini a veces usa mayúscula y a veces minúscula).
+# Lista amplia para capturar el vocabulario real que generan los LLMs cinematográficos.
 _ACTION_VERBS_PATTERN = re.compile(
     r"\b("
-    r"LUNGES?|JUMPS?|BOUNCES?|SPINS?|ROTATES?|LEANS?|STOMPS?|SHAKES?|SLAMS?|"
-    r"SLIDES?|POINTS?|CROSSES?|THROWS?|ROLLS?|CLUTCHES?|ROCKS?|TREMBLES?|"
-    r"WAVES?|PUSHES?|PULLS?|RAISES?|LOWERS?|TURNS?|TWISTS?|COLLAPSES?|"
-    r"BURSTS?|SNAPS?|GRABS?|RUBS?|JABS?|TILTS?|CRASHES?|KICKS?|DROPS?"
-    r")\b"
+    # Movimientos del cuerpo entero
+    r"lunges?|jumps?|bounces?|spins?|rotates?|leans?|stomps?|shakes?|slams?|"
+    r"slides?|lurches?|stumbles?|stalks?|paces?|marches?|skips?|hops?|"
+    # Brazos / manos
+    r"points?|crosses?|throws?|raises?|lowers?|reaches?|grabs?|rubs?|jabs?|"
+    r"clutches?|holds?|grips?|extends?|retracts?|claps?|wrings?|fists?|"
+    # Cabeza / cara
+    r"glares?|stares?|nods?|shakes_head|tilts?|turns?|twists?|cranes?|"
+    r"gasps?|sighs?|huffs?|grimaces?|smirks?|smiles?|frowns?|scowls?|"
+    # Animales / criaturas (insectos, etc)
+    r"flutters?|crawls?|scurries?|scuttles?|hovers?|buzzes?|wiggles?|" r"writhes?|coils?|uncoils?|slithers?|"
+    # Acciones de impacto
+    r"slams?|crashes?|kicks?|drops?|smashes?|bangs?|thuds?|" r"bursts?|snaps?|cracks?|breaks?|shatters?|"
+    # Movimientos sutiles
+    r"trembles?|quivers?|shudders?|sways?|rocks?|wavers?|wobbles?|"
+    r"shrinks?|cowers?|crouches?|kneels?|collapses?|slumps?|"
+    # Cámara / perspectiva (también cuenta como acción visual del shot)
+    r"looms?|towers?|approaches?|backs_away|recoils?|advances?|"
+    # Otros
+    r"opens?|closes?|throws?_arms|raises?_arms|falls?|stands?|sits?|lies?" r")\b",
+    re.IGNORECASE,
 )
 
 
-class _SafeFormatDict(dict):
-    """Dict que devuelve `{key}` literal si la clave no existe.
-
-    Permite renderizar templates con str.format_map sin crashear si el agente
-    en agent-config evoluciona y agrega un placeholder nuevo que el código
-    todavía no provee.
-    """
-
-    def __missing__(self, key: str) -> str:
-        return "{" + key + "}"
+# Nota sobre el rendering del prompt:
+#
+# NO usamos str.format_map porque el system prompt del agente puede contener
+# llaves literales `{}` (ej: ejemplos de output JSON dentro del prompt).
+# format_map las interpreta como placeholders e intenta hacer parseo de format
+# spec, lo que falla con "Invalid format specifier" al ver `{"key": "value"}`.
+#
+# En su lugar hacemos replace explícito por cada placeholder conocido. Es más
+# simple, no interpreta nada raro, y solo toca los placeholders que pasamos
+# en `variables`. Si el agente evoluciona y agrega un placeholder nuevo, lo
+# preserva como literal en el prompt (sin crashear).
 
 
 class VideoStudioService(VideoStudioServiceInterface):
@@ -288,6 +313,7 @@ class VideoStudioService(VideoStudioServiceInterface):
             f"Director output failed validation after {attempts_used} attempts: "
             f"{'; '.join(last_validation_errors)}",
             step="validation",
+            last_payload=parsed,
         )
 
     async def run_and_callback(self, request: VideoStudioDraftRequest) -> None:
@@ -363,8 +389,8 @@ class VideoStudioService(VideoStudioServiceInterface):
     ) -> str:
         """Renderiza el system prompt del agente con todas las variables locales.
 
-        Usa str.format_map con un defaultdict que preserva placeholders missing
-        para no romper si el agente evoluciona.
+        Hace replace explícito por cada placeholder conocido. Ver la nota arriba
+        sobre por qué NO usamos str.format_map.
         """
         creative_patterns_json = json.dumps(
             active_patterns,
@@ -372,22 +398,25 @@ class VideoStudioService(VideoStudioServiceInterface):
             indent=2,
         )
 
-        variables = _SafeFormatDict(
-            product_name=request.product_name or "",
-            product_description=request.product_description or "",
-            language=request.language or "es",
-            duration=str(request.duration),
-            is_combo="true" if request.is_combo else "false",
-            sale_angle_name=request.sale_angle_name or "",
-            sale_angle_description=request.sale_angle_description or "",
-            target_audience_description=request.target_audience_description or "",
-            target_audience_vibe=request.target_audience_vibe or "",
-            user_instruction=request.user_instruction or "",
-            creative_patterns_json=creative_patterns_json,
-        )
+        variables: Dict[str, str] = {
+            "product_name": request.product_name or "",
+            "product_description": request.product_description or "",
+            "language": request.language or "es",
+            "duration": str(request.duration),
+            "is_combo": "true" if request.is_combo else "false",
+            "sale_angle_name": request.sale_angle_name or "",
+            "sale_angle_description": request.sale_angle_description or "",
+            "target_audience_description": request.target_audience_description or "",
+            "target_audience_vibe": request.target_audience_vibe or "",
+            "user_instruction": request.user_instruction or "",
+            "creative_patterns_json": creative_patterns_json,
+        }
 
         try:
-            return template.format_map(variables)
+            rendered = template
+            for key, value in variables.items():
+                rendered = rendered.replace("{" + key + "}", value)
+            return rendered
         except Exception as e:
             logger.error("[VIDEO_STUDIO] template rendering failed: %s", e)
             raise VideoStudioError(
