@@ -1,0 +1,77 @@
+{
+  "_doc": "Casos canónicos del eval harness del Director Creativo. Cada caso es un VideoStudioDraftRequest minimal + el pattern_key esperado (heurístico, no estricto: el judge no penaliza si el modelo elige otro pattern razonable). agent_id se omite y usa el default video_director_animated_v1. Para correr offline contra Gemini real, ver evals/director/README.md.",
+  "cases": [
+    {
+      "id": "mosquitos_repelente",
+      "product_name": "Repelente ultrasónico de insectos x1",
+      "product_description": "Dispositivo enchufable que ahuyenta mosquitos sin químicos ni olores.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "smug_villain",
+      "notes": "El producto es el villano que disfruta exterminando bichos. Pattern smug_villain es el match natural."
+    },
+    {
+      "id": "antorcha_camping",
+      "product_name": "Antorcha LED recargable T9",
+      "product_description": "Linterna ultrabrillante 1000 lúmenes, resistente al agua, batería 12h.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "tired_employee",
+      "notes": "Caso de oscuridad/seguridad nocturna. Pattern tired_employee (linterna vieja exhausta) o suffering_victim funciona."
+    },
+    {
+      "id": "masajeador_cervical",
+      "product_name": "Masajeador cervical eléctrico",
+      "product_description": "Alivia dolor de cuello y hombros con calor + EMS. Recargable, portátil.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "suffering_victim",
+      "notes": "Dolor crónico → suffering_victim del cuello del usuario."
+    },
+    {
+      "id": "lampara_inteligente",
+      "product_name": "Lámpara LED inteligente RGB",
+      "product_description": "Lámpara WiFi con 16 millones de colores, control por app y voz.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "negotiating_problem",
+      "notes": "Ambiente aburrido negocia con la lámpara para no ser reemplazado."
+    },
+    {
+      "id": "aspiradora_robot",
+      "product_name": "Aspiradora robot inteligente",
+      "product_description": "Mapeo láser, succión 3000Pa, app móvil, autocarga.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "tired_employee",
+      "notes": "Escoba vieja exhausta es reemplazada. Tired_employee es el match."
+    },
+    {
+      "id": "hervidor_termico",
+      "product_name": "Termo eléctrico inteligente 1.5L",
+      "product_description": "Mantiene agua a temperatura exacta, app, ahorro energético.",
+      "duration": 15,
+      "language": "es",
+      "expected_pattern_hint": "negotiating_problem",
+      "notes": "Caso non-combo (15s, single scene). Verifica que el director NO emite script_part_b."
+    },
+    {
+      "id": "dispenser_jabon_auto",
+      "product_name": "Dispensador automático de jabón",
+      "product_description": "Sensor infrarrojo, 250ml, recargable USB, sin contacto.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "smug_villain",
+      "notes": "El dispenser desplaza al jabón viejo con elegancia siniestra."
+    },
+    {
+      "id": "purificador_aire",
+      "product_name": "Purificador de aire HEPA H13",
+      "product_description": "Filtra 99.97% de partículas, silencioso, sensor de calidad.",
+      "duration": 30,
+      "language": "es",
+      "expected_pattern_hint": "horror_buildup",
+      "notes": "Aire contaminado invisible es la amenaza. Horror_buildup escala el peligro hasta revelar el héroe."
+    }
+  ]
+}
