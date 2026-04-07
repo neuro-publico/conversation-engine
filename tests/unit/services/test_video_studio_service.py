@@ -104,13 +104,16 @@ async def test_run_director_happy_path_combo() -> None:
     fake_agent = _make_agent_config()
     fake_payload = _valid_combo_payload()
 
-    with patch(
-        "app.services.video_studio_service.get_agent",
-        new=AsyncMock(return_value=fake_agent),
-    ), patch(
-        "app.services.video_studio_service.call_gemini_structured",
-        new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
-    ) as mock_gemini:
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+        ) as mock_gemini,
+    ):
         result = await service.run_director(_make_request(duration=30))
 
     assert result.selected_pattern_key == "smug_villain"
@@ -126,12 +129,15 @@ async def test_run_director_happy_path_non_combo() -> None:
     fake_agent = _make_agent_config()
     fake_payload = _valid_non_combo_payload()
 
-    with patch(
-        "app.services.video_studio_service.get_agent",
-        new=AsyncMock(return_value=fake_agent),
-    ), patch(
-        "app.services.video_studio_service.call_gemini_structured",
-        new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+        ),
     ):
         result = await service.run_director(_make_request(duration=15))
 
@@ -161,12 +167,15 @@ async def test_run_director_gemini_error_raises_director_step() -> None:
     service = VideoStudioService()
     fake_agent = _make_agent_config()
 
-    with patch(
-        "app.services.video_studio_service.get_agent",
-        new=AsyncMock(return_value=fake_agent),
-    ), patch(
-        "app.services.video_studio_service.call_gemini_structured",
-        new=AsyncMock(side_effect=GeminiTextError("boom", status=500, raw="oops")),
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(side_effect=GeminiTextError("boom", status=500, raw="oops")),
+        ),
     ):
         with pytest.raises(VideoStudioError) as excinfo:
             await service.run_director(_make_request())
@@ -197,13 +206,16 @@ async def test_run_director_validator_self_correction() -> None:
     async def fake_call(**_kwargs: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         return call_results.pop(0)
 
-    with patch(
-        "app.services.video_studio_service.get_agent",
-        new=AsyncMock(return_value=fake_agent),
-    ), patch(
-        "app.services.video_studio_service.call_gemini_structured",
-        side_effect=fake_call,
-    ) as mock_gemini:
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            side_effect=fake_call,
+        ) as mock_gemini,
+    ):
         result = await service.run_director(_make_request())
 
     assert result.ends_with_product_name is True
