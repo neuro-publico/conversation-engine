@@ -147,4 +147,3 @@ class TestClonePageService:
             service._parse_response("This is not JSON at all")
 
         assert exc_info.value.status_code == 500
-
