@@ -250,6 +250,14 @@ def test_build_response_schema_branches_to_ugc_when_style_is_ugc_testimonial() -
     assert "script_part_b" in required
     assert "ugc_scene_b_description" in required
 
+    # Phase 6 v2 — multi-shot visual briefs are present and required on combo
+    assert "ugc_scene_a_visual_brief" in props
+    assert "ugc_scene_b_visual_brief" in props
+    assert "ugc_scene_b_includes_face" in props
+    assert "ugc_scene_a_visual_brief" in required
+    assert "ugc_scene_b_visual_brief" in required
+    assert "ugc_scene_b_includes_face" in required
+
 
 @pytest.mark.unit
 def test_build_response_schema_ugc_non_combo_does_not_require_part_b() -> None:
@@ -265,6 +273,12 @@ def test_build_response_schema_ugc_non_combo_does_not_require_part_b() -> None:
     assert "ugc_scene_a_description" in required
     assert "script_part_b" not in required
     assert "ugc_scene_b_description" not in required
+
+    # Phase 6 v2 — non-combo only requires scene_a_visual_brief; scene_b_*
+    # are present as nullable but NOT required (single 15s clip has no Part B)
+    assert "ugc_scene_a_visual_brief" in required
+    assert "ugc_scene_b_visual_brief" not in required
+    assert "ugc_scene_b_includes_face" not in required
 
     # The properties still exist in the schema (they can be null)
     props = ugc_non_combo["properties"]
@@ -289,6 +303,9 @@ def test_build_response_schema_legacy_styles_return_kling_schema() -> None:
         assert "cinematic_beats_a" in props, f"missing cinematic_beats_a for style={style}"
         assert "ugc_avatar_visual_brief" not in props, f"UGC field leaked for style={style}"
         assert "ugc_voice_tone" not in props, f"UGC field leaked for style={style}"
+        assert "ugc_scene_a_visual_brief" not in props, f"UGC v2 field leaked for style={style}"
+        assert "ugc_scene_b_visual_brief" not in props, f"UGC v2 field leaked for style={style}"
+        assert "ugc_scene_b_includes_face" not in props, f"UGC v2 field leaked for style={style}"
 
 
 @pytest.mark.unit
@@ -319,11 +336,25 @@ def test_pydantic_payload_accepts_ugc_only_fields() -> None:
         ugc_scene_b_description="macro close-up of the avatar's finger touching the cream inside",
         ugc_voice_tone="warm",
         ugc_voice_pace="natural",
+        # Phase 6 v2 — multi-shot visual briefs
+        ugc_scene_a_visual_brief=(
+            "medium-wide shot of the same 55 year old latina woman from the avatar brief, "
+            "in the same marble bathroom, holding the Honey Balm jar at chest height with "
+            "both hands, soft window light from camera-left, candid expression"
+        ),
+        ugc_scene_b_visual_brief=(
+            "macro close-up of two female hands on a marble counter dipping a finger into "
+            "the open Honey Balm jar, creamy yellow texture clearly visible, soft warm light, "
+            "no face in frame"
+        ),
+        ugc_scene_b_includes_face=False,
     )
 
     assert ugc_payload.ugc_avatar_visual_brief.startswith("photorealistic")
     assert ugc_payload.ugc_voice_tone == "warm"
     assert ugc_payload.ugc_voice_pace == "natural"
+    assert "marble bathroom" in ugc_payload.ugc_scene_a_visual_brief
+    assert ugc_payload.ugc_scene_b_includes_face is False
     # Kling fields are None — that's the whole point
     assert ugc_payload.concept_visual_brief is None
     assert ugc_payload.cinematic_camera_a is None
@@ -418,6 +449,96 @@ def test_validate_payload_ugc_validators_apply_only_to_ugc_payloads() -> None:
         validators=["ugc_voice_tone_in_set"],
     )
     assert any("ugc_voice_tone_in_set" in e for e in errors)
+
+
+@pytest.mark.unit
+def test_validate_payload_ugc_v2_visual_briefs_validators() -> None:
+    """Phase 6 v2: validators for the new multi-shot visual briefs.
+
+    - ugc_scene_a_visual_brief_min_chars: errors when scene_a_visual_brief is
+      too short. Skips silently when the field is absent (back-compat).
+    - ugc_scene_b_visual_brief_min_chars: same but for scene_b. Only applies
+      to combo (non-combo has no Part B).
+    - ugc_scene_briefs_distinct: errors when scene_a and scene_b briefs are
+      identical. Only applies to combo. The whole point of multi-shot is
+      that the two compositions are visually different.
+    """
+    service = VideoStudioService()
+    combo_request = _make_request(duration=30)
+    non_combo_request = _make_request(duration=15)
+
+    # Skip silently when fields are absent
+    bare_payload = {"script_part_a": "test"}
+    errors = service._validate_payload(
+        parsed=bare_payload,
+        request=combo_request,
+        validators=[
+            "ugc_scene_a_visual_brief_min_chars:150",
+            "ugc_scene_b_visual_brief_min_chars:150",
+            "ugc_scene_briefs_distinct",
+        ],
+    )
+    assert errors == [], f"validators must skip when fields are absent, got: {errors}"
+
+    # scene_a too short → error
+    short_a = {
+        "ugc_scene_a_visual_brief": "too short",  # 9 chars
+        "ugc_scene_b_visual_brief": "x" * 200,
+    }
+    errors = service._validate_payload(
+        parsed=short_a,
+        request=combo_request,
+        validators=["ugc_scene_a_visual_brief_min_chars:150"],
+    )
+    assert any("ugc_scene_a_visual_brief_min_chars" in e for e in errors)
+
+    # scene_b too short on combo → error
+    short_b_combo = {
+        "ugc_scene_a_visual_brief": "x" * 200,
+        "ugc_scene_b_visual_brief": "too short",
+    }
+    errors = service._validate_payload(
+        parsed=short_b_combo,
+        request=combo_request,
+        validators=["ugc_scene_b_visual_brief_min_chars:150"],
+    )
+    assert any("ugc_scene_b_visual_brief_min_chars" in e for e in errors)
+
+    # scene_b too short on NON-combo → no error (validator scoped to combo)
+    short_b_non_combo = {
+        "ugc_scene_a_visual_brief": "x" * 200,
+        "ugc_scene_b_visual_brief": "too short",
+    }
+    errors = service._validate_payload(
+        parsed=short_b_non_combo,
+        request=non_combo_request,
+        validators=["ugc_scene_b_visual_brief_min_chars:150"],
+    )
+    assert errors == [], f"non-combo must skip scene_b validators, got: {errors}"
+
+    # Identical briefs on combo → error
+    identical = {
+        "ugc_scene_a_visual_brief": "x" * 200,
+        "ugc_scene_b_visual_brief": "x" * 200,
+    }
+    errors = service._validate_payload(
+        parsed=identical,
+        request=combo_request,
+        validators=["ugc_scene_briefs_distinct"],
+    )
+    assert any("ugc_scene_briefs_distinct" in e for e in errors)
+
+    # Distinct briefs on combo → no error
+    distinct = {
+        "ugc_scene_a_visual_brief": "talking head wide shot " * 10,
+        "ugc_scene_b_visual_brief": "macro close-up of hands " * 10,
+    }
+    errors = service._validate_payload(
+        parsed=distinct,
+        request=combo_request,
+        validators=["ugc_scene_briefs_distinct"],
+    )
+    assert errors == [], f"distinct briefs must pass, got: {errors}"
 
 
 @pytest.mark.unit

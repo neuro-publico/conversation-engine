@@ -104,6 +104,32 @@ class VideoStudioDraftReadyPayload(BaseModel):
     # voice_pace: slow | natural | fast
     ugc_voice_pace: Optional[str] = None
 
+    # ── Phase 6 v2 — multi-shot visual briefs ──
+    # The director now thinks in 3 distinct compositions instead of 1
+    # so Seedance 2.0 has different visual material per fraction. ecommerce
+    # generates 3 base images at preview time (portrait + scene_a + scene_b)
+    # using image-to-image chaining (portrait acts as the identity anchor
+    # for the two scene images, preserving the actor's face).
+    #
+    # Schema (all Optional at the type level, REQUIRED at gemini schema level
+    # for ugc-testimonial — combo requires scene_b_*, non-combo allows null):
+    #   - ugc_scene_a_visual_brief: STATIC composition for the Part A image.
+    #     "Same person from the avatar brief, in [setting], holding/showing
+    #      the product, candid expression, [framing]". Used to generate the
+    #      starting frame of the Part A clip.
+    #   - ugc_scene_b_visual_brief: STATIC composition for the Part B image.
+    #     Can be face-FREE (close-up of hands applying product) when
+    #     ugc_scene_b_includes_face is False — saves identity-drift risk
+    #     and gives the Part B clip a true demonstration shot.
+    #   - ugc_scene_b_includes_face: bool flag. The director decides based
+    #     on the script_part_b: if it's a personal statement ("a las 2
+    #     semanas yo...") → True. If it's a product callout ("y mirá lo
+    #     cremoso") → False, and ecommerce generates Part B without
+    #     chaining the portrait (cheaper, no identity-drift risk).
+    ugc_scene_a_visual_brief: Optional[str] = None
+    ugc_scene_b_visual_brief: Optional[str] = None
+    ugc_scene_b_includes_face: Optional[bool] = None
+
 
 class VideoStudioCallbackPayload(BaseModel):
     """Body sent to the `callback_url` when the pipeline finishes (or fails)."""
