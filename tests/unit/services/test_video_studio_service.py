@@ -198,6 +198,228 @@ def test_build_response_schema_includes_cinematic_beats_required_when_combo() ->
     assert "15" in beat_schema["properties"]["duration"]["enum"]
 
 
+# ─────────────────────────────────────────────────────────
+# Phase 6 — UGC schema branching (Seedance 2.0)
+# ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.unit
+def test_build_response_schema_branches_to_ugc_when_style_is_ugc_testimonial() -> None:
+    """Phase 6: when style_id == 'ugc-testimonial' the schema returned is the
+    UGC schema (with ugc_avatar_visual_brief etc) and NOT the Kling schema
+    (no concept_visual_brief, no cinematic_camera_*, no cinematic_beats_*).
+    Backwards compatible: any other style_id returns the legacy Kling schema.
+    """
+    service = VideoStudioService()
+
+    ugc_combo = service._build_response_schema(is_combo=True, style_id="ugc-testimonial")
+    props = ugc_combo["properties"]
+
+    # UGC fields ARE present
+    assert "ugc_avatar_visual_brief" in props
+    assert "ugc_product_setup_brief" in props
+    assert "ugc_scene_a_description" in props
+    assert "ugc_scene_b_description" in props
+    assert "ugc_voice_tone" in props
+    assert "ugc_voice_pace" in props
+
+    # Kling fields are NOT present (no leakage)
+    assert "concept_visual_brief" not in props
+    assert "cinematic_camera_a" not in props
+    assert "cinematic_camera_b" not in props
+    assert "cinematic_prompt_a" not in props
+    assert "cinematic_prompt_b" not in props
+    assert "cinematic_beats_a" not in props
+    assert "cinematic_beats_b" not in props
+
+    # Common fields are still there
+    assert "selected_pattern_key" in props
+    assert "script_part_a" in props
+    assert "script_part_b" in props
+    assert "ends_with_product_name" in props
+    assert "viral_hook_first_3_seconds" in props
+
+    # Required set: combo includes script_part_b + ugc_scene_b_description
+    required = ugc_combo["required"]
+    assert "ugc_avatar_visual_brief" in required
+    assert "ugc_product_setup_brief" in required
+    assert "ugc_scene_a_description" in required
+    assert "ugc_voice_tone" in required
+    assert "ugc_voice_pace" in required
+    assert "script_part_a" in required
+    assert "script_part_b" in required
+    assert "ugc_scene_b_description" in required
+
+
+@pytest.mark.unit
+def test_build_response_schema_ugc_non_combo_does_not_require_part_b() -> None:
+    """Phase 6: non-combo UGC (single 15s clip) should NOT require script_part_b
+    nor ugc_scene_b_description. The properties still exist as nullable but the
+    required set excludes them."""
+    service = VideoStudioService()
+
+    ugc_non_combo = service._build_response_schema(is_combo=False, style_id="ugc-testimonial")
+    required = ugc_non_combo["required"]
+
+    assert "ugc_avatar_visual_brief" in required
+    assert "ugc_scene_a_description" in required
+    assert "script_part_b" not in required
+    assert "ugc_scene_b_description" not in required
+
+    # The properties still exist in the schema (they can be null)
+    props = ugc_non_combo["properties"]
+    assert "script_part_b" in props
+    assert "ugc_scene_b_description" in props
+    assert props["ugc_scene_b_description"].get("nullable") is True
+
+
+@pytest.mark.unit
+def test_build_response_schema_legacy_styles_return_kling_schema() -> None:
+    """Phase 6 backwards compat: sassy-object, animated-problem, and any other
+    style_id (or no style_id at all) must return the legacy Kling schema with
+    cinematic_camera_*, cinematic_prompt_*, cinematic_beats_*, and
+    concept_visual_brief — exactly like Phase 5.5."""
+    service = VideoStudioService()
+
+    for style in ["sassy-object", "animated-problem", "podcast-style", "", "anything-else"]:
+        schema = service._build_response_schema(is_combo=True, style_id=style)
+        props = schema["properties"]
+        assert "concept_visual_brief" in props, f"missing concept_visual_brief for style={style}"
+        assert "cinematic_camera_a" in props, f"missing cinematic_camera_a for style={style}"
+        assert "cinematic_beats_a" in props, f"missing cinematic_beats_a for style={style}"
+        assert "ugc_avatar_visual_brief" not in props, f"UGC field leaked for style={style}"
+        assert "ugc_voice_tone" not in props, f"UGC field leaked for style={style}"
+
+
+@pytest.mark.unit
+def test_pydantic_payload_accepts_ugc_only_fields() -> None:
+    """Phase 6: VideoStudioDraftReadyPayload must parse a UGC-only payload
+    (no concept_visual_brief, no cinematic_*) without errors. The Pydantic
+    model treats both Kling and UGC fields as Optional so payloads from
+    either flow validate."""
+    from app.responses.video_studio_draft_response import VideoStudioDraftReadyPayload
+
+    ugc_payload = VideoStudioDraftReadyPayload(
+        selected_pattern_key="morning_routine_testimonial",
+        selection_reasoning="avatar matches target audience",
+        script_part_a="Llevo dos semanas usando esto y cambió mi rutina de mañana.",
+        script_part_b="Lo abrís, lo aplicás suave en la cara. Evil Goods Honey Balm.",
+        ends_with_product_name=True,
+        viral_hook_first_3_seconds="Mi piel cambió en 14 días",
+        ugc_avatar_visual_brief=(
+            "photorealistic 55 year old latina woman wearing a cream colored bath robe, "
+            "short gray hair, soft natural skin, in a marble bathroom with morning natural "
+            "light from the left, plants in the background"
+        ),
+        ugc_product_setup_brief=(
+            "close-up of the Evil Goods Whipped Tallow Honey Balm bottle on a marble counter, "
+            "label fully readable, soft warm key light, eucalyptus blurred behind"
+        ),
+        ugc_scene_a_description="medium shot of the avatar talking to camera, holding the product",
+        ugc_scene_b_description="macro close-up of the avatar's finger touching the cream inside",
+        ugc_voice_tone="warm",
+        ugc_voice_pace="natural",
+    )
+
+    assert ugc_payload.ugc_avatar_visual_brief.startswith("photorealistic")
+    assert ugc_payload.ugc_voice_tone == "warm"
+    assert ugc_payload.ugc_voice_pace == "natural"
+    # Kling fields are None — that's the whole point
+    assert ugc_payload.concept_visual_brief is None
+    assert ugc_payload.cinematic_camera_a is None
+    assert ugc_payload.cinematic_beats_a is None
+
+
+@pytest.mark.unit
+def test_pydantic_payload_legacy_kling_payload_still_parses() -> None:
+    """Phase 6 regression guard: the existing sassy/animated payload shape
+    (the one with concept_visual_brief + cinematic_*) MUST still parse via
+    the same Pydantic model. We made the Kling fields Optional but the
+    fixtures still set them, so parsing should succeed unchanged."""
+    from app.responses.video_studio_draft_response import (
+        CinematicBeat,
+        VideoStudioDraftReadyPayload,
+    )
+
+    kling_payload = VideoStudioDraftReadyPayload(
+        selected_pattern_key="smug_villain",
+        selection_reasoning="test",
+        concept_visual_brief="A 3D Pixar mosquito with smug face",
+        script_part_a="Hola soy la plaga",
+        script_part_b="Hasta que llegó el repelente",
+        ends_with_product_name=True,
+        cinematic_camera_a="LOW_ANGLE_HERO",
+        cinematic_camera_b="DUTCH_ANGLE",
+        cinematic_prompt_a="The character lurches",
+        cinematic_prompt_b="The character trembles",
+        cinematic_beats_a=[
+            CinematicBeat(prompt="BEAT 1: SLOW DOLLY_IN", duration="5"),
+            CinematicBeat(prompt="BEAT 2: WHIP_PAN", duration="5"),
+        ],
+        viral_hook_first_3_seconds="Mosquitos creían que ganaban",
+    )
+    assert kling_payload.concept_visual_brief == "A 3D Pixar mosquito with smug face"
+    assert len(kling_payload.cinematic_beats_a) == 2
+    # UGC fields are None — backwards compat
+    assert kling_payload.ugc_avatar_visual_brief is None
+    assert kling_payload.ugc_voice_tone is None
+
+
+@pytest.mark.unit
+def test_validate_payload_ugc_validators_apply_only_to_ugc_payloads() -> None:
+    """Phase 6: the new UGC validators (ugc_avatar_brief_min_chars,
+    ugc_product_setup_brief_min_chars, ugc_voice_tone_in_set) skip silently
+    when the payload doesn't have those fields (Kling payload). They only
+    error when a UGC payload has invalid values."""
+    service = VideoStudioService()
+    request = _make_request(duration=30)
+
+    # Kling payload — UGC fields are absent → all UGC validators skip
+    kling_parsed = _valid_combo_payload()
+    errors = service._validate_payload(
+        parsed=kling_parsed,
+        request=request,
+        validators=[
+            "ugc_avatar_brief_min_chars:200",
+            "ugc_product_setup_brief_min_chars:150",
+            "ugc_voice_tone_in_set",
+        ],
+    )
+    assert errors == [], f"UGC validators should skip on Kling payload, got: {errors}"
+
+    # UGC payload with avatar_brief too short → error
+    short_brief = {
+        "ugc_avatar_visual_brief": "too short",  # 9 chars, min 200
+        "ugc_product_setup_brief": "x" * 200,  # OK
+        "ugc_voice_tone": "warm",  # OK
+        "script_part_a": "test",
+        "script_part_b": "test product",
+    }
+    errors = service._validate_payload(
+        parsed=short_brief,
+        request=request,
+        validators=[
+            "ugc_avatar_brief_min_chars:200",
+            "ugc_product_setup_brief_min_chars:150",
+            "ugc_voice_tone_in_set",
+        ],
+    )
+    assert any("ugc_avatar_brief_min_chars" in e for e in errors), f"missing avatar_brief error: {errors}"
+
+    # UGC payload with invalid voice_tone → error
+    bad_tone = {
+        "ugc_avatar_visual_brief": "x" * 250,
+        "ugc_product_setup_brief": "x" * 200,
+        "ugc_voice_tone": "robotic",  # not in allowed set
+    }
+    errors = service._validate_payload(
+        parsed=bad_tone,
+        request=request,
+        validators=["ugc_voice_tone_in_set"],
+    )
+    assert any("ugc_voice_tone_in_set" in e for e in errors)
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_run_director_happy_path_non_combo() -> None:
