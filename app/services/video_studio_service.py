@@ -588,6 +588,19 @@ class VideoStudioService(VideoStudioServiceInterface):
                 "type": "STRING",
                 "enum": ["slow", "natural", "fast"],
             },
+            # Phase 6 v2 — multi-shot visual briefs.
+            # scene_a_visual_brief: STATIC composition for the starting frame
+            # of Part A (talking-head + product visible). Always required.
+            # scene_b_visual_brief: STATIC composition for Part B's starting
+            # frame. Required only on combo. Can be face-free (close-up
+            # demo) when scene_b_includes_face is False.
+            # scene_b_includes_face: lets the director declare whether
+            # Part B's image must preserve the actor's face. Required only
+            # on combo. Drives the ecommerce image-chaining decision
+            # (chained generation vs face-free single-shot).
+            "ugc_scene_a_visual_brief": {"type": "STRING"},
+            "ugc_scene_b_visual_brief": {"type": "STRING", "nullable": True},
+            "ugc_scene_b_includes_face": {"type": "BOOLEAN", "nullable": True},
         }
 
         required = [
@@ -599,6 +612,7 @@ class VideoStudioService(VideoStudioServiceInterface):
             "ugc_avatar_visual_brief",
             "ugc_product_setup_brief",
             "ugc_scene_a_description",
+            "ugc_scene_a_visual_brief",
             "ugc_voice_tone",
             "ugc_voice_pace",
         ]
@@ -607,6 +621,8 @@ class VideoStudioService(VideoStudioServiceInterface):
                 [
                     "script_part_b",
                     "ugc_scene_b_description",
+                    "ugc_scene_b_visual_brief",
+                    "ugc_scene_b_includes_face",
                 ]
             )
 
@@ -713,6 +729,47 @@ class VideoStudioService(VideoStudioServiceInterface):
                         f"ugc_voice_tone_in_set: voice_tone='{tone}' no está en "
                         f"{sorted(allowed)}. Tiene que ser uno de esos exactos."
                     )
+
+            # Phase 6 v2 — multi-shot visual briefs validators.
+            # Estos corren SOLO cuando los fields existen, así que para
+            # sassy/animated y para drafts UGC viejos sin los nuevos fields
+            # se skipean silenciosamente (back-compat).
+            elif name == "ugc_scene_a_visual_brief_min_chars":
+                min_c = int(param or "150")
+                txt = (parsed.get("ugc_scene_a_visual_brief") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"ugc_scene_a_visual_brief_min_chars: ugc_scene_a_visual_brief "
+                        f"tiene {len(txt)} chars, mínimo {min_c}. Necesitamos descripción "
+                        f"compositiva detallada para que ecommerce genere la imagen base "
+                        f"de Part A con identidad consistente."
+                    )
+
+            elif name == "ugc_scene_b_visual_brief_min_chars":
+                if request.is_combo:
+                    min_c = int(param or "150")
+                    txt = (parsed.get("ugc_scene_b_visual_brief") or "").strip()
+                    if txt and len(txt) < min_c:
+                        errors.append(
+                            f"ugc_scene_b_visual_brief_min_chars: ugc_scene_b_visual_brief "
+                            f"tiene {len(txt)} chars, mínimo {min_c}."
+                        )
+
+            elif name == "ugc_scene_briefs_distinct":
+                # Las dos composiciones tienen que ser visualmente distintas.
+                # Si el director repite el mismo brief para A y B no estamos
+                # exprimiendo el formato combo y los dos clips van a parecer
+                # clones, que es exactamente lo que queremos evitar.
+                if request.is_combo:
+                    a = (parsed.get("ugc_scene_a_visual_brief") or "").strip()
+                    b = (parsed.get("ugc_scene_b_visual_brief") or "").strip()
+                    if a and b and a == b:
+                        errors.append(
+                            "ugc_scene_briefs_distinct: ugc_scene_a_visual_brief y "
+                            "ugc_scene_b_visual_brief son idénticos. Tienen que describir "
+                            "composiciones visualmente distintas (ej: A=talking head con "
+                            "producto visible, B=close-up de manos aplicando producto)."
+                        )
 
             else:
                 logger.warning("[VIDEO_STUDIO] unknown validator '%s' — skipping", name)
