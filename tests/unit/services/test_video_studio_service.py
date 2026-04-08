@@ -124,6 +124,82 @@ async def test_run_director_happy_path_combo() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_run_director_parses_cinematic_beats_when_present() -> None:
+    """Phase 5.5: when Gemini emits cinematic_beats_a/b, the Pydantic model
+    must parse them through to the response so the ecommerce dispatch can
+    consume them as multi_prompt input. The schema enforces them as
+    required, but Pydantic keeps them Optional for back-compat with old
+    fixtures and old tests."""
+    service = VideoStudioService()
+    fake_agent = _make_agent_config()
+    fake_payload = _valid_combo_payload()
+    fake_payload["cinematic_beats_a"] = [
+        {"prompt": "BEAT 1: SLOW DOLLY_IN macro on the angry character.", "duration": "5"},
+        {"prompt": "BEAT 2: WHIP_PAN to medium shot, character points.", "duration": "5"},
+        {"prompt": "BEAT 3: PULL_OUT hero shot, character crosses arms.", "duration": "5"},
+    ]
+    fake_payload["cinematic_beats_b"] = [
+        {"prompt": "BEAT 1: PUSH_IN macro on the smug face.", "duration": "5"},
+        {"prompt": "BEAT 2: ARC_AROUND, character winks.", "duration": "5"},
+        {"prompt": "BEAT 3: TILT_UP hero shot, character points at camera.", "duration": "5"},
+    ]
+
+    with (
+        patch(
+            "app.services.video_studio_service.get_agent",
+            new=AsyncMock(return_value=fake_agent),
+        ),
+        patch(
+            "app.services.video_studio_service.call_gemini_structured",
+            new=AsyncMock(return_value=(fake_payload, {"usageMetadata": {}})),
+        ),
+    ):
+        result = await service.run_director(_make_request(duration=30))
+
+    assert result.cinematic_beats_a is not None
+    assert len(result.cinematic_beats_a) == 3
+    assert result.cinematic_beats_a[0].prompt.startswith("BEAT 1:")
+    assert result.cinematic_beats_a[0].duration == "5"
+    assert result.cinematic_beats_b is not None
+    assert len(result.cinematic_beats_b) == 3
+    assert result.cinematic_beats_b[2].prompt.startswith("BEAT 3:")
+
+
+@pytest.mark.unit
+def test_build_response_schema_includes_cinematic_beats_required_when_combo() -> None:
+    """Phase 5.5: cinematic_beats_a is always required, cinematic_beats_b
+    is required only when combo. Validates the schema shape Gemini receives
+    so the structured output forces both fields."""
+    service = VideoStudioService()
+
+    combo_schema = service._build_response_schema(is_combo=True)
+    assert "cinematic_beats_a" in combo_schema["properties"]
+    assert "cinematic_beats_b" in combo_schema["properties"]
+    assert combo_schema["properties"]["cinematic_beats_a"]["type"] == "ARRAY"
+    assert combo_schema["properties"]["cinematic_beats_a"]["minItems"] == 2
+    assert combo_schema["properties"]["cinematic_beats_a"]["maxItems"] == 3
+    assert "cinematic_beats_a" in combo_schema["required"]
+    assert "cinematic_beats_b" in combo_schema["required"]
+
+    non_combo_schema = service._build_response_schema(is_combo=False)
+    # beats_a is still required for non-combo (single 15s clip with beats)
+    assert "cinematic_beats_a" in non_combo_schema["required"]
+    # beats_b is NOT required for non-combo
+    assert "cinematic_beats_b" not in non_combo_schema["required"]
+    # but the property still exists in the schema as nullable
+    assert non_combo_schema["properties"]["cinematic_beats_b"]["nullable"] is True
+
+    # Each beat object schema enforces prompt + duration as required
+    beat_schema = combo_schema["properties"]["cinematic_beats_a"]["items"]
+    assert beat_schema["type"] == "OBJECT"
+    assert "prompt" in beat_schema["required"]
+    assert "duration" in beat_schema["required"]
+    assert "5" in beat_schema["properties"]["duration"]["enum"]
+    assert "15" in beat_schema["properties"]["duration"]["enum"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_run_director_happy_path_non_combo() -> None:
     service = VideoStudioService()
     fake_agent = _make_agent_config()
