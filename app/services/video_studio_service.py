@@ -428,9 +428,36 @@ class VideoStudioService(VideoStudioServiceInterface):
         """Construye el JSON Schema para responseSchema de Gemini.
 
         Required dinámico según si es combo o no:
-          - Combo: script_part_b, cinematic_camera_b y cinematic_prompt_b son requeridos
+          - Combo: script_part_b, cinematic_camera_b, cinematic_prompt_b
+                   y cinematic_beats_b son requeridos
           - No combo: pueden ser null
+
+        Phase 5.5: agrega cinematic_beats_a y cinematic_beats_b al schema.
+        Estos son arrays de 2-3 beats donde cada beat es {prompt, duration},
+        usados por ecommerce.VideoDraftService para enviar a Kling V3 Pro
+        como `multi_prompt`. Cada beat se rendea como un shot interno
+        distinto dentro del mismo clip continuo.
+
+        cinematic_beats_a es SIEMPRE requerido (también en non-combo).
+        cinematic_beats_b solo es requerido en combo.
+
+        Backwards compatible: si en algún caso el director no emite los
+        beats por algún motivo (LLM jitter), ecommerce hace fallback al
+        camino legacy single-prompt usando cinematic_prompt_a/b — el
+        contrato del director sigue garantizando AMBOS campos.
         """
+        beat_schema = {
+            "type": "OBJECT",
+            "properties": {
+                "prompt": {"type": "STRING"},
+                "duration": {
+                    "type": "STRING",
+                    "enum": [str(s) for s in range(3, 16)],
+                },
+            },
+            "required": ["prompt", "duration"],
+        }
+
         properties = {
             "selected_pattern_key": {"type": "STRING"},
             "selection_reasoning": {"type": "STRING"},
@@ -449,6 +476,19 @@ class VideoStudioService(VideoStudioServiceInterface):
             },
             "cinematic_prompt_a": {"type": "STRING"},
             "cinematic_prompt_b": {"type": "STRING", "nullable": True},
+            "cinematic_beats_a": {
+                "type": "ARRAY",
+                "items": beat_schema,
+                "minItems": 2,
+                "maxItems": 3,
+            },
+            "cinematic_beats_b": {
+                "type": "ARRAY",
+                "items": beat_schema,
+                "minItems": 2,
+                "maxItems": 3,
+                "nullable": True,
+            },
             "viral_hook_first_3_seconds": {"type": "STRING"},
         }
 
@@ -460,10 +500,18 @@ class VideoStudioService(VideoStudioServiceInterface):
             "ends_with_product_name",
             "cinematic_camera_a",
             "cinematic_prompt_a",
+            "cinematic_beats_a",
             "viral_hook_first_3_seconds",
         ]
         if is_combo:
-            required.extend(["script_part_b", "cinematic_camera_b", "cinematic_prompt_b"])
+            required.extend(
+                [
+                    "script_part_b",
+                    "cinematic_camera_b",
+                    "cinematic_prompt_b",
+                    "cinematic_beats_b",
+                ]
+            )
 
         return {
             "type": "OBJECT",
