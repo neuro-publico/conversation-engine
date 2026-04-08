@@ -41,32 +41,68 @@ class VideoStudioDraftReadyPayload(BaseModel):
     This mirrors the `responseSchema` we send to Gemini. Used for typing on
     the Python side after parsing the LLM response.
 
-    Phase 5.5: cinematic_beats_a/b are the new multi-shot fields. They are
-    OPTIONAL at the type level (so old prompts that don't emit them still
-    parse), but the responseSchema makes cinematic_beats_a REQUIRED (and
-    cinematic_beats_b required only when combo).
+    Phase 5.5: cinematic_beats_a/b are the multi-shot fields used by Kling
+    V3 Pro `multi_prompt`. OPTIONAL at the type level so non-Kling styles
+    (UGC with Seedance) parse without them.
 
-    All fields except `script_part_b`, `cinematic_camera_b`, `cinematic_prompt_b`,
-    `cinematic_beats_b` are nullable for non-combo videos (5/10/15s single-clip).
+    Phase 6: ugc_avatar_visual_brief, ugc_product_setup_brief,
+    ugc_scene_a/b_description, ugc_voice_tone, ugc_voice_pace are the
+    UGC-specific fields used by Seedance 2.0 reference-to-video. Also
+    OPTIONAL so sassy/animated payloads (which don't emit them) parse
+    without them.
+
+    The responseSchema (built dynamically per style_id) enforces the right
+    REQUIRED set per style — see `_build_response_schema` in
+    `video_studio_service.py`.
+
+    Nullable groups by branch type:
+      - non-combo (5/10/15s single-clip): script_part_b, cinematic_camera_b,
+        cinematic_prompt_b, cinematic_beats_b, ugc_scene_b_description.
+      - non-Kling (UGC, podcast, modeling): cinematic_beats_a/b are not used.
+      - non-UGC (sassy, animated): ugc_* fields are not used.
     """
 
+    # ── Common fields (all styles) ──
     selected_pattern_key: str
     selection_reasoning: str
-    concept_visual_brief: str
     script_part_a: str
     script_part_b: Optional[str] = None
     ends_with_product_name: bool
-    cinematic_camera_a: str
+    viral_hook_first_3_seconds: str
+
+    # ── Kling-style fields (sassy-object, animated-problem) ──
+    # `concept_visual_brief` is the legacy single-image brief that ecommerce
+    # wraps with the Pixar character HARD RULES. UGC does NOT use this field
+    # — it uses ugc_avatar_visual_brief + ugc_product_setup_brief instead.
+    concept_visual_brief: Optional[str] = None
+    cinematic_camera_a: Optional[str] = None
     cinematic_camera_b: Optional[str] = None
-    cinematic_prompt_a: str
+    cinematic_prompt_a: Optional[str] = None
     cinematic_prompt_b: Optional[str] = None
-    # Phase 5.5: optional multi-beat cinematics. When present, ecommerce
-    # renders this branch as N internal beats via Kling V3 Pro multi_prompt.
-    # When absent, ecommerce falls back to the legacy single-prompt path
-    # with cinematic_prompt_a/b.
+    # Phase 5.5: optional multi-beat cinematics for Kling V3 Pro multi_prompt.
+    # When present, ecommerce renders the branch as N internal beats. When
+    # absent, ecommerce falls back to single-prompt cinematic_prompt_a/b.
+    # Not emitted by UGC director (Seedance does not support multi_prompt).
     cinematic_beats_a: Optional[List[CinematicBeat]] = None
     cinematic_beats_b: Optional[List[CinematicBeat]] = None
-    viral_hook_first_3_seconds: str
+
+    # ── Phase 6 UGC-style fields (ugc-testimonial via Seedance 2.0) ──
+    # These describe the multi-image references (avatar + product + scene)
+    # and the TTS voice for the UGC video. ecommerce reads them in
+    # handleDraftReady to pre-generate the 3 base images via the existing
+    # AIClient.generateImageDirectPrompt pipeline, then in
+    # dispatchApprovedDraft to build the Seedance reference-to-video payload.
+    #
+    # All Optional at the type level. The responseSchema for ugc-testimonial
+    # makes the relevant ones REQUIRED at the Gemini-output level.
+    ugc_avatar_visual_brief: Optional[str] = None
+    ugc_product_setup_brief: Optional[str] = None
+    ugc_scene_a_description: Optional[str] = None
+    ugc_scene_b_description: Optional[str] = None
+    # voice_tone: warm | energetic | calm | excited | professional
+    ugc_voice_tone: Optional[str] = None
+    # voice_pace: slow | natural | fast
+    ugc_voice_pace: Optional[str] = None
 
 
 class VideoStudioCallbackPayload(BaseModel):

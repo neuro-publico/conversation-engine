@@ -180,7 +180,16 @@ class VideoStudioService(VideoStudioServiceInterface):
         )
 
         # 3. Construir el JSON Schema para structured output forzado.
-        response_schema = self._build_response_schema(is_combo=request.is_combo)
+        # Phase 6: el schema branchea por style_id. Para sassy/animated devuelve
+        # el schema legacy con cinematic_prompt_a/b + cinematic_beats_a/b. Para
+        # ugc-testimonial devuelve un schema distinto con ugc_avatar_visual_brief,
+        # ugc_product_setup_brief, ugc_scene_a/b_description, ugc_voice_tone,
+        # ugc_voice_pace. Backwards compatible: sassy/animated calls llaman
+        # con style_id distinto a "ugc-testimonial" y obtienen el schema legacy.
+        response_schema = self._build_response_schema(
+            is_combo=request.is_combo,
+            style_id=request.style_id,
+        )
 
         # 4. Llamada a Gemini direct con self-correction loop (max 2 intentos).
         validators = studio_config.get("validators", [])
@@ -398,18 +407,33 @@ class VideoStudioService(VideoStudioServiceInterface):
             indent=2,
         )
 
+        # Phase 6: avatar config para UGC. Si no es UGC o el frontend no
+        # mandó avatar_config, los placeholders quedan vacíos en el template
+        # del agente — no rompen los agentes legacy de sassy/animated que
+        # nunca los usan.
+        avatar_cfg = request.avatar_config or {}
+
         variables: Dict[str, str] = {
             "product_name": request.product_name or "",
             "product_description": request.product_description or "",
             "language": request.language or "es",
             "duration": str(request.duration),
             "is_combo": "true" if request.is_combo else "false",
+            "style_id": request.style_id or "",
             "sale_angle_name": request.sale_angle_name or "",
             "sale_angle_description": request.sale_angle_description or "",
             "target_audience_description": request.target_audience_description or "",
             "target_audience_vibe": request.target_audience_vibe or "",
             "user_instruction": request.user_instruction or "",
             "creative_patterns_json": creative_patterns_json,
+            # Phase 6 — avatar config placeholders para UGC director
+            "ugc_avatar_gender": str(avatar_cfg.get("gender") or ""),
+            "ugc_avatar_age_range": str(avatar_cfg.get("age_range") or ""),
+            "ugc_avatar_skin_tone": str(avatar_cfg.get("skin_tone") or ""),
+            "ugc_avatar_hair": str(avatar_cfg.get("hair") or ""),
+            "ugc_avatar_hair_color": str(avatar_cfg.get("hair_color") or ""),
+            "ugc_avatar_vibe": str(avatar_cfg.get("vibe") or ""),
+            "ugc_avatar_setting": str(avatar_cfg.get("setting") or ""),
         }
 
         try:
@@ -424,28 +448,28 @@ class VideoStudioService(VideoStudioServiceInterface):
                 step="prompt_render",
             ) from e
 
-    def _build_response_schema(self, is_combo: bool) -> Dict[str, Any]:
+    def _build_response_schema(self, is_combo: bool, style_id: str = "") -> Dict[str, Any]:
         """Construye el JSON Schema para responseSchema de Gemini.
 
-        Required dinámico según si es combo o no:
-          - Combo: script_part_b, cinematic_camera_b, cinematic_prompt_b
-                   y cinematic_beats_b son requeridos
+        Phase 6: branchea por style_id.
+          - "ugc-testimonial" → schema UGC con ugc_avatar_visual_brief,
+            ugc_product_setup_brief, ugc_scene_a/b_description,
+            ugc_voice_tone, ugc_voice_pace. NO incluye los campos
+            cinematic_prompt_*, cinematic_camera_*, cinematic_beats_*
+            que son específicos de Kling.
+          - cualquier otro style_id (sassy-object, animated-problem, default)
+            → schema Kling legacy. Backwards compatible 100%.
+
+        Phase 5.5 (Kling schema):
+          - cinematic_beats_a SIEMPRE requerido (también non-combo)
+          - cinematic_beats_b solo requerido en combo
+
+        Required dinámico según combo/non-combo (ambos schemas):
+          - Combo: script_part_b + las variantes _b son requeridas
           - No combo: pueden ser null
-
-        Phase 5.5: agrega cinematic_beats_a y cinematic_beats_b al schema.
-        Estos son arrays de 2-3 beats donde cada beat es {prompt, duration},
-        usados por ecommerce.VideoDraftService para enviar a Kling V3 Pro
-        como `multi_prompt`. Cada beat se rendea como un shot interno
-        distinto dentro del mismo clip continuo.
-
-        cinematic_beats_a es SIEMPRE requerido (también en non-combo).
-        cinematic_beats_b solo es requerido en combo.
-
-        Backwards compatible: si en algún caso el director no emite los
-        beats por algún motivo (LLM jitter), ecommerce hace fallback al
-        camino legacy single-prompt usando cinematic_prompt_a/b — el
-        contrato del director sigue garantizando AMBOS campos.
         """
+        if style_id == "ugc-testimonial":
+            return self._build_ugc_response_schema(is_combo=is_combo)
         beat_schema = {
             "type": "OBJECT",
             "properties": {
@@ -510,6 +534,79 @@ class VideoStudioService(VideoStudioServiceInterface):
                     "cinematic_camera_b",
                     "cinematic_prompt_b",
                     "cinematic_beats_b",
+                ]
+            )
+
+        return {
+            "type": "OBJECT",
+            "properties": properties,
+            "required": required,
+        }
+
+    def _build_ugc_response_schema(self, is_combo: bool) -> Dict[str, Any]:
+        """Schema para el director UGC (Seedance 2.0 reference-to-video).
+
+        Diferencias con el schema Kling:
+          - NO emite cinematic_camera_a/b (Seedance no usa enum de cámaras
+            estricto, el control es via lenguaje natural en el prompt)
+          - NO emite cinematic_prompt_a/b ni cinematic_beats_a/b (Seedance
+            no soporta multi_prompt array)
+          - SÍ emite ugc_avatar_visual_brief (descripción detallada de la
+            persona — ecommerce la usa para generar @image1)
+          - SÍ emite ugc_product_setup_brief (descripción del producto en
+            escena — ecommerce la usa para generar @image2)
+          - SÍ emite ugc_scene_a_description y ugc_scene_b_description
+            (descripción narrativa de cada escena — ecommerce las usa
+            como prompt principal del Seedance call)
+          - SÍ emite ugc_voice_tone y ugc_voice_pace (Seedance los lee
+            del prompt para guiar el TTS nativo)
+          - Mantiene script_part_a/b, ends_with_product_name,
+            selected_pattern_key, viral_hook_first_3_seconds (comunes)
+
+        Required dinámico:
+          - Combo (30s): incluye script_part_b + ugc_scene_b_description
+          - Non-combo: pueden ser null
+        """
+        properties = {
+            # Common
+            "selected_pattern_key": {"type": "STRING"},
+            "selection_reasoning": {"type": "STRING"},
+            "script_part_a": {"type": "STRING"},
+            "script_part_b": {"type": "STRING", "nullable": True},
+            "ends_with_product_name": {"type": "BOOLEAN"},
+            "viral_hook_first_3_seconds": {"type": "STRING"},
+            # UGC-specific
+            "ugc_avatar_visual_brief": {"type": "STRING"},
+            "ugc_product_setup_brief": {"type": "STRING"},
+            "ugc_scene_a_description": {"type": "STRING"},
+            "ugc_scene_b_description": {"type": "STRING", "nullable": True},
+            "ugc_voice_tone": {
+                "type": "STRING",
+                "enum": ["warm", "energetic", "calm", "excited", "professional"],
+            },
+            "ugc_voice_pace": {
+                "type": "STRING",
+                "enum": ["slow", "natural", "fast"],
+            },
+        }
+
+        required = [
+            "selected_pattern_key",
+            "selection_reasoning",
+            "script_part_a",
+            "ends_with_product_name",
+            "viral_hook_first_3_seconds",
+            "ugc_avatar_visual_brief",
+            "ugc_product_setup_brief",
+            "ugc_scene_a_description",
+            "ugc_voice_tone",
+            "ugc_voice_pace",
+        ]
+        if is_combo:
+            required.extend(
+                [
+                    "script_part_b",
+                    "ugc_scene_b_description",
                 ]
             )
 
@@ -584,6 +681,39 @@ class VideoStudioService(VideoStudioServiceInterface):
                     wc = len(txt.split())
                     if wc > max_w:
                         errors.append(f"max_words_part_b: script_part_b tiene {wc} palabras, máximo {max_w}.")
+
+            # ── Phase 6 — Validators específicos de UGC ──
+            # Estos validators corren SOLO sobre payloads de director UGC.
+            # Para sassy/animated los fields ugc_* están vacíos y el check
+            # se skipea silenciosamente — safe para back-compat.
+            elif name == "ugc_avatar_brief_min_chars":
+                min_c = int(param or "200")
+                txt = (parsed.get("ugc_avatar_visual_brief") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"ugc_avatar_brief_min_chars: ugc_avatar_visual_brief tiene "
+                        f"{len(txt)} chars, mínimo {min_c}. Necesitamos descripción "
+                        f"detallada del avatar para identity consistency entre escenas."
+                    )
+
+            elif name == "ugc_product_setup_brief_min_chars":
+                min_c = int(param or "150")
+                txt = (parsed.get("ugc_product_setup_brief") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"ugc_product_setup_brief_min_chars: ugc_product_setup_brief "
+                        f"tiene {len(txt)} chars, mínimo {min_c}."
+                    )
+
+            elif name == "ugc_voice_tone_in_set":
+                allowed = {"warm", "energetic", "calm", "excited", "professional"}
+                tone = (parsed.get("ugc_voice_tone") or "").strip()
+                if tone and tone not in allowed:
+                    errors.append(
+                        f"ugc_voice_tone_in_set: voice_tone='{tone}' no está en "
+                        f"{sorted(allowed)}. Tiene que ser uno de esos exactos."
+                    )
+
             else:
                 logger.warning("[VIDEO_STUDIO] unknown validator '%s' — skipping", name)
 

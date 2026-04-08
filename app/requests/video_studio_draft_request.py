@@ -1,6 +1,6 @@
 """Request DTO for the new ads video Director Creative pipeline."""
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -55,6 +55,14 @@ class VideoStudioDraftRequest(BaseModel):
     # User instruction (opcional)
     user_instruction: Optional[str] = None
 
+    # Phase 6 — Avatar config para UGC (sin uso para sassy/animated).
+    # Diccionario libre con los campos del avatar wizard del frontend:
+    # gender, age_range, skin_tone, hair, hair_color, vibe, setting.
+    # El director Gemini de UGC los lee del template prompt vía
+    # placeholders {ugc_avatar_*}. Optional para back-compat con
+    # llamadas existentes de sassy/animated que NO mandan este field.
+    avatar_config: Optional[Dict[str, Any]] = None
+
     # Async callback
     callback_url: Optional[str] = None
     callback_metadata: Optional[Dict[str, str]] = None
@@ -62,3 +70,8 @@ class VideoStudioDraftRequest(BaseModel):
     @property
     def is_combo(self) -> bool:
         return self.duration == 30
+
+    @property
+    def is_ugc(self) -> bool:
+        """True para los estilos que usan Seedance 2.0 (UGC + futuros)."""
+        return self.style_id == "ugc-testimonial"
