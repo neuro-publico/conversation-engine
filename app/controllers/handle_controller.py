@@ -20,10 +20,13 @@ from app.requests.product_scraping_request import ProductScrapingRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from app.requests.section_image_request import SectionImageRequest
+from app.requests.clone_page_request import ClonePageRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.requests.video_studio_draft_request import VideoStudioDraftRequest
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
+from app.services.clone_page_service import ClonePageService
+from app.services.clone_page_service_interface import ClonePageServiceInterface
 from app.services.dropi_service import DropiService
 
 # Importaciones para Dropi
@@ -341,6 +344,16 @@ async def video_studio_draft_async(
             "message": "Director Creative pipeline started.",
         },
     )
+
+
+@router.post("/clone-page")
+@require_auth
+async def clone_page(
+    request: Request,
+    clone_request: ClonePageRequest,
+    service: ClonePageServiceInterface = Depends(ClonePageService),
+):
+    return await service.clone_page(clone_request)
 
 
 @router.get("/health")
