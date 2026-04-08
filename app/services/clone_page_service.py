@@ -1,6 +1,8 @@
+import asyncio
 import json
+import logging
 import re
-from typing import List, Tuple
+from typing import Tuple
 
 import aiohttp
 from fastapi import HTTPException
@@ -12,8 +14,10 @@ from app.requests.clone_page_request import ClonePageRequest
 from app.responses.clone_page_response import ClonePageMetadata, ClonePageResponse
 from app.services.clone_page_service_interface import ClonePageServiceInterface
 
+logger = logging.getLogger(__name__)
+
 CLONE_MODEL = "claude-sonnet-4-5-20250514"
-CLONE_MAX_TOKENS = 16000
+CLONE_MAX_TOKENS = 32000
 
 CLONE_PROMPT = """You are an elite frontend engineer specialized in replicating web pages with pixel-perfect precision.
 Your goal is to produce a single self-contained HTML document that is visually indistinguishable from the provided screenshot.
@@ -80,9 +84,24 @@ CRITICAL RULES:
 class ClonePageService(ClonePageServiceInterface):
     async def clone_page(self, request: ClonePageRequest) -> ClonePageResponse:
         url = str(request.url)
+        logger.info("Cloning page: %s", url)
 
-        html_source, screenshot_base64 = await self._scrape_page(url)
-        clone_result = await self._generate_clone(html_source, screenshot_base64, url)
+        try:
+            html_source, screenshot_base64 = await self._scrape_page(url)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.error("Network error scraping %s: %s", url, e)
+            raise HTTPException(status_code=502, detail=f"Failed to reach scraper service: {e}")
+
+        try:
+            clone_result = await self._generate_clone(html_source, screenshot_base64, url)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("AI clone generation failed for %s: %s", url, e)
+            raise HTTPException(status_code=500, detail=f"AI clone generation failed: {e}")
+
+        if "html" not in clone_result:
+            raise HTTPException(status_code=500, detail="AI response missing 'html' key")
 
         return ClonePageResponse(
             html=clone_result["html"],
@@ -107,6 +126,7 @@ class ClonePageService(ClonePageServiceInterface):
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
+                    logger.error("Scraper returned status %d for %s: %s", response.status, url, error_text)
                     raise HTTPException(status_code=400, detail=f"Error scraping page: {error_text}")
 
                 data = await response.json()
@@ -157,10 +177,3 @@ class ClonePageService(ClonePageServiceInterface):
                 pass
 
         raise HTTPException(status_code=500, detail="Failed to parse AI clone response as JSON")
-
-    def _extract_images(self, html: str) -> List[str]:
-        img_pattern = r'(?:src|data-src|srcset)=["\']([^"\']+?\.(?:jpg|jpeg|png|gif|webp|svg|avif)[^"\']*)["\']'
-        bg_pattern = r'url\(["\']?([^"\')\s]+?\.(?:jpg|jpeg|png|gif|webp|svg|avif)[^"\')\s]*)["\']?\)'
-        images = re.findall(img_pattern, html, re.IGNORECASE)
-        images += re.findall(bg_pattern, html, re.IGNORECASE)
-        return list(dict.fromkeys(images))

@@ -148,26 +148,3 @@ class TestClonePageService:
 
         assert exc_info.value.status_code == 500
 
-    @pytest.mark.unit
-    def test_extract_images_from_html(self, service):
-        """Debe extraer URLs de imágenes del HTML."""
-        html = """
-        <img src="https://example.com/img1.jpg" />
-        <img data-src="https://example.com/img2.png" />
-        <div style="background-image: url('https://example.com/bg.webp')"></div>
-        """
-        images = service._extract_images(html)
-        assert len(images) == 3
-        assert "https://example.com/img1.jpg" in images
-        assert "https://example.com/img2.png" in images
-        assert "https://example.com/bg.webp" in images
-
-    @pytest.mark.unit
-    def test_extract_images_deduplicates(self, service):
-        """Debe deduplicar URLs de imágenes."""
-        html = """
-        <img src="https://example.com/img1.jpg" />
-        <img src="https://example.com/img1.jpg" />
-        """
-        images = service._extract_images(html)
-        assert len(images) == 1
