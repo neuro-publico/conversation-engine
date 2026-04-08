@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.db.audit_logger import log_prompt
 from app.middlewares.auth_middleware import require_api_key, require_auth
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
+from app.requests.clone_page_request import ClonePageRequest
 from app.requests.copy_request import CopyRequest
 from app.requests.direct_scrape_request import DirectScrapeRequest
 from app.requests.generate_audio_request import GenerateAudioRequest
@@ -20,7 +21,6 @@ from app.requests.product_scraping_request import ProductScrapingRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
 from app.requests.section_image_request import SectionImageRequest
-from app.requests.clone_page_request import ClonePageRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.requests.video_studio_draft_request import VideoStudioDraftRequest
 from app.services.audio_service import AudioService
