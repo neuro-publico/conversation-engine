@@ -661,24 +661,15 @@ class VideoStudioService(VideoStudioServiceInterface):
             if name == "ends_with_product_name":
                 target = (parsed.get("script_part_b") if request.is_combo else parsed.get("script_part_a")) or ""
                 if request.product_name:
+                    # Case-insensitive check for all product names.
+                    # Long SKUs (>5 words): only check first 3 words.
                     product_words = request.product_name.split()
-                    if len(product_words) <= 5:
-                        # Short name: require exact match (e.g. "Hair Growth Serum")
-                        if request.product_name not in target:
-                            errors.append(
-                                f"ends_with_product_name: el script de cierre no contiene "
-                                f"'{request.product_name}'. Está: '{target[:120]}...'"
-                            )
-                    else:
-                        # Long SKU (>5 words): require at least the first 3 words
-                        # to avoid forcing 15-word Amazon titles into a 50-word script.
-                        short_name = " ".join(product_words[:3])
-                        if short_name.lower() not in target.lower():
-                            errors.append(
-                                f"ends_with_product_name: el script de cierre no contiene "
-                                f"al menos '{short_name}' (nombre corto del producto). "
-                                f"Está: '{target[:120]}...'"
-                            )
+                    check_name = request.product_name if len(product_words) <= 5 else " ".join(product_words[:3])
+                    if check_name.lower() not in target.lower():
+                        errors.append(
+                            f"ends_with_product_name: el script de cierre no contiene "
+                            f"'{check_name}'. Está: '{target[:120]}...'"
+                        )
 
             elif name == "camera_varies_between_scenes":
                 if request.is_combo:
