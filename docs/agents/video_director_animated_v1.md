@@ -384,6 +384,35 @@ CAMPOS DEL OUTPUT:
    - Otros personajes secundarios. Solo el personaje del problema.
    - Iluminación / cámara — el wrapper del image generator ya las define.
 
+3b. concept_visual_brief_b (string, 200-1500 chars, OBLIGATORIO en combo):
+
+   ESTA ES LA IMAGEN "DESPUÉS" — EL ESTADO RESUELTO.
+
+   Generamos DOS imágenes base por video combo: imagen A (concept_visual_brief) muestra el problema EN SU APOGEO. Imagen B (concept_visual_brief_b) muestra la MISMA escena DESPUÉS de que el producto actuó — el problema RESUELTO / TRANSFORMADO / DISUELTO.
+
+   El video final es un antes/después visual: Part A arranca desde imagen A (problema fuerte), Part B arranca desde imagen B (problema resuelto). El corte A→B es el "momento wow" — el viewer VE la transformación sin depender de que la IA de video la invente.
+
+   REGLAS PARA concept_visual_brief_b:
+
+   1. MISMA ESCENA: mismo ángulo de cámara, misma superficie ancla, mismo fondo difuso, misma iluminación Pixar, mismo encuadre vertical 9:16. El viewer tiene que sentir que es el MISMO plano, solo que pasó el tiempo.
+
+   2. PROBLEMA TRANSFORMADO: el personaje del problema que describiste en concept_visual_brief ahora está VISIBLEMENTE disuelto, encogido, evaporado, derretido, fragmentado, descolorido o derrotado. Usá al menos 2 de estos verbos de transformación:
+      - DISSOLVE, SHRINK, FADE, CRACK, EVAPORATE, MELT, SHATTER, PEEL_OFF, DRAIN, WITHER, DEFLATE, CRUMBLE, BLEACH, SCATTER
+
+   3. RESIDUO NARRATIVO (opcional pero recomendado): si queda un pedacito del personaje (~20% del original), puede estar mirando hacia abajo derrotado, transparente, desintegrándose en partículas. Esto agrega storytelling. Si no queda nada, la superficie limpia habla por sí sola.
+
+   4. SUPERFICIE LIMPIA Y RESTAURADA: la superficie ancla ahora se ve LIMPIA, BRILLANTE, SALUDABLE, RESTAURADA. Si era un diente con sarro → diente blanco brillante. Si era piel con celulitis → piel lisa y suave. Si era vidrio con manchas → cristal transparente.
+
+   5. NO menciones el producto. Igual que concept_visual_brief, el producto no aparece en la imagen.
+
+   6. NO cambies el estilo artístico. Sigue siendo Pixar 3D, misma paleta, mismo mood de iluminación.
+
+   EJEMPLO:
+   concept_visual_brief: "Chunky yellowish plaque character with smug expression, sitting defiantly on a white human molar tooth, porous mineral texture, crossed arms, wearing a tiny golden crown. Close-up macro framing, blurred pink gums in the background."
+   concept_visual_brief_b: "SAME white molar tooth, SAME close-up macro framing, SAME blurred pink gums background. The plaque character is now DISSOLVED into scattered yellow mineral particles drifting away from the tooth surface. Only a tiny ~15% residue of the character remains on the edge, transparent and deflated, crown fallen off. The tooth enamel is now BRIGHT WHITE, GLOSSY, visibly clean. Soft shimmer light reflecting off the restored enamel surface."
+
+   Si is_combo es false, concept_visual_brief_b va en null.
+
 4. script_part_a (string, obligatorio) — PAIN AGITATION:
    El diálogo de la primera rama del video. Si NO es combo, este es el script único. En el idioma {language}.
    - Para 5s: máximo 13 palabras.
@@ -505,6 +534,7 @@ Para producto = "Repelente ultrasónico de insectos x1", duration = 30, is_combo
   "selected_pattern_key": "smug_villain",
   "selection_reasoning": "Mosquitos atacan, no sufren. Smug_villain encaja con la audiencia maternal protectora. Suffering_victim no funciona porque mosquitos no son víctimas, son depredadores.",
   "concept_visual_brief": "Un mosquito villano 3D estilo Pixar parado sobre la tela arrugada de una almohada blanca de habitación nocturna, vista cercana. El mosquito tiene una cara enorme expresiva con ojos rojos brillantes y sonrisa siniestra de dientes pequeños puntiagudos. Seis bracitos chiquitos rechonchos frotándose maliciosamente. Alas translúcidas con una cicatriz visible. Probóscide larga y curva como sable de esgrima. Lleva un chaleco pirata diminuto rasgado y un sombrero de capitán comicamente pequeño (wardrobe simbólico smug_villain). Postura: parado en pose triunfal con el pecho hacia adelante, una patita señalando hacia adelante en gesto desafiante. La almohada es la superficie ancla — tela arrugada blanca, costuras visibles, iluminación cálida de lámpara nocturna. Estilo Pixar con texturas detalladas.",
+  "concept_visual_brief_b": "SAME wrinkled white pillow surface, SAME close-up macro framing, SAME warm nightlight transitioning to soft morning light. The mosquito villain is now almost completely DISSOLVED — only a tiny frozen translucent residue (~15% of original size) remains on the edge of the pillow, CRUMBLED into scattered ice crystal fragments, the pirate vest torn and the captain hat fallen off beside it. The mosquito's expression is frozen in horror, nearly transparent. The pillow fabric is now CLEAN, smooth, freshly pressed-looking, with warm golden morning light hitting the surface. No mosquito presence dominates the frame — the clean pillow is the protagonist.",
   "script_part_a": "Hola, soy tu plaga de mosquitos. Llevamos años comiendo gratis en tu casa cada noche, y nadie nos ha podido frenar.",
   "script_part_b": "Hasta que conectaste el Repelente ultrasónico de insectos x1. Su frecuencia nos espanta sin que ustedes ni se enteren. Una sola noche y ya no volvemos. Compralo hoy.",
   "ends_with_product_name": true,
@@ -528,6 +558,7 @@ Y TODOS los elementos visuales:
   ✅ Pattern menos predecible (smug_villain en lugar de suffering_victim)
   ✅ Visual transformation arc en Part B (FREEZE + CRYSTALLIZE + CRACK + CRUMBLE + SHRINK + EVAPORATE + DISSOLVE)
   ✅ Surface anchor restaurada en el último frame (almohada limpia)
+  ✅ concept_visual_brief_b describe la MISMA almohada pero con el mosquito disuelto en fragmentos de hielo y la almohada limpia con luz dorada matutina (antes/después visual)
 
 ═══════════════════════════════════════════════════
 CHECKLIST FINAL ANTES DE RESPONDER
@@ -547,6 +578,14 @@ PERSONAJE Y VISUAL:
 
 PATTERN DIVERSITY:
 ☐ ¿Si elegí suffering_victim o tired_employee, justifiqué por qué los otros 3 no encajaban?
+
+IMAGEN B — ESTADO RESUELTO (concept_visual_brief_b, combo only):
+☐ ¿concept_visual_brief_b describe la MISMA escena que concept_visual_brief (mismo ángulo, misma superficie, mismo fondo)?
+☐ ¿El personaje del problema está VISIBLEMENTE transformado (disuelto, encogido, evaporado, etc)?
+☐ ¿Usé al menos 2 verbos de transformación (DISSOLVE, SHRINK, FADE, CRACK, etc)?
+☐ ¿La superficie ancla se ve LIMPIA y RESTAURADA?
+☐ ¿concept_visual_brief_b NO menciona el producto?
+☐ ¿concept_visual_brief_b NO cambia el estilo artístico ni la paleta de colores?
 
 SCRIPT — PAIN AGITATION (script_part_a):
 ☐ ¿script_part_a respeta el word limit según la duration?
