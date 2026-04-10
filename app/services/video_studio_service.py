@@ -486,6 +486,9 @@ class VideoStudioService(VideoStudioServiceInterface):
             "selected_pattern_key": {"type": "STRING"},
             "selection_reasoning": {"type": "STRING"},
             "concept_visual_brief": {"type": "STRING"},
+            # Phase 5.6: second image brief for animated-problem resolved state.
+            # Only required for animated-problem combo (added dynamically below).
+            "concept_visual_brief_b": {"type": "STRING", "nullable": True},
             "script_part_a": {"type": "STRING"},
             "script_part_b": {"type": "STRING", "nullable": True},
             "ends_with_product_name": {"type": "BOOLEAN"},
@@ -536,6 +539,10 @@ class VideoStudioService(VideoStudioServiceInterface):
                     "cinematic_beats_b",
                 ]
             )
+            # Phase 5.6: animated-problem combo requires the resolved-state
+            # brief so ecommerce can generate a second base image for Part B.
+            if style_id == "animated-problem":
+                required.append("concept_visual_brief_b")
 
         return {
             "type": "OBJECT",
@@ -653,11 +660,25 @@ class VideoStudioService(VideoStudioServiceInterface):
 
             if name == "ends_with_product_name":
                 target = (parsed.get("script_part_b") if request.is_combo else parsed.get("script_part_a")) or ""
-                if request.product_name and request.product_name not in target:
-                    errors.append(
-                        f"ends_with_product_name: el script de cierre no contiene "
-                        f"'{request.product_name}'. Está: '{target[:120]}...'"
-                    )
+                if request.product_name:
+                    product_words = request.product_name.split()
+                    if len(product_words) <= 5:
+                        # Short name: require exact match (e.g. "Hair Growth Serum")
+                        if request.product_name not in target:
+                            errors.append(
+                                f"ends_with_product_name: el script de cierre no contiene "
+                                f"'{request.product_name}'. Está: '{target[:120]}...'"
+                            )
+                    else:
+                        # Long SKU (>5 words): require at least the first 3 words
+                        # to avoid forcing 15-word Amazon titles into a 50-word script.
+                        short_name = " ".join(product_words[:3])
+                        if short_name.lower() not in target.lower():
+                            errors.append(
+                                f"ends_with_product_name: el script de cierre no contiene "
+                                f"al menos '{short_name}' (nombre corto del producto). "
+                                f"Está: '{target[:120]}...'"
+                            )
 
             elif name == "camera_varies_between_scenes":
                 if request.is_combo:
@@ -697,6 +718,17 @@ class VideoStudioService(VideoStudioServiceInterface):
                     wc = len(txt.split())
                     if wc > max_w:
                         errors.append(f"max_words_part_b: script_part_b tiene {wc} palabras, máximo {max_w}.")
+
+            # ── Phase 5.6 — concept_visual_brief_b validator ──
+            elif name == "concept_visual_brief_b_min_chars":
+                min_c = int(param or "200")
+                txt = (parsed.get("concept_visual_brief_b") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"concept_visual_brief_b_min_chars: concept_visual_brief_b tiene "
+                        f"{len(txt)} chars, mínimo {min_c}. Necesitamos descripción "
+                        f"detallada del estado resuelto para generar la segunda imagen base."
+                    )
 
             # ── Phase 6 — Validators específicos de UGC ──
             # Estos validators corren SOLO sobre payloads de director UGC.

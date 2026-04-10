@@ -75,6 +75,12 @@ class VideoStudioDraftReadyPayload(BaseModel):
     # wraps with the Pixar character HARD RULES. UGC does NOT use this field
     # — it uses ugc_avatar_visual_brief + ugc_product_setup_brief instead.
     concept_visual_brief: Optional[str] = None
+    # Phase 5.6: second base image brief for animated-problem Part B.
+    # Describes the SAME character on the SAME surface anchor in the
+    # RESOLVED/TRANSFORMED state. ecommerce generates image B using
+    # image A as fileUrl reference (chaining) to preserve identity.
+    # Only emitted by animated-problem combo drafts.
+    concept_visual_brief_b: Optional[str] = None
     cinematic_camera_a: Optional[str] = None
     cinematic_camera_b: Optional[str] = None
     cinematic_prompt_a: Optional[str] = None
