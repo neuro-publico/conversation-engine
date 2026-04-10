@@ -129,6 +129,7 @@ INPUT QUE RECIBÍS
 - Producto: {product_name}
 - Descripción: {product_description}
 - Idioma del script: {language}
+  ⚠️ ESPAÑOL NEUTRO OBLIGATORIO: si {language} es "es" o "español", el script DEBE usar español neutro latinoamericano. PROHIBIDO el voseo argentino (merecés, despertá, actualizate, sos, podés, tenés, comprá, salí). Usá SIEMPRE tuteo neutro: mereces, despierta, actualízate, eres, puedes, tienes, compra, sal. Esto aplica a TODO el output: script_part_a, script_part_b, viral_hook, y dialogue slices en cinematic_beats. Si el modelo genera UNA sola palabra en voseo, el video suena regional y pierde audiencia pan-latinoamericana.
 - Duración del video: {duration} segundos
 - Es combo (2 escenas): {is_combo}
 - Sale angle name: {sale_angle_name}
