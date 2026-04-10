@@ -659,16 +659,19 @@ class VideoStudioService(VideoStudioServiceInterface):
                 name, param = v, None
 
             if name == "ends_with_product_name":
+                # Warning only — log for analytics but do NOT block the draft.
+                # The prompt already asks Gemini to include the name. If it
+                # doesn't, the user can edit the script in the preview.
                 target = (parsed.get("script_part_b") if request.is_combo else parsed.get("script_part_a")) or ""
                 if request.product_name:
-                    # Case-insensitive check for all product names.
-                    # Long SKUs (>5 words): only check first 3 words.
                     product_words = request.product_name.split()
                     check_name = request.product_name if len(product_words) <= 5 else " ".join(product_words[:3])
                     if check_name.lower() not in target.lower():
-                        errors.append(
-                            f"ends_with_product_name: el script de cierre no contiene "
-                            f"'{check_name}'. Está: '{target[:120]}...'"
+                        logger.warning(
+                            "[VIDEO_STUDIO] ends_with_product_name SOFT FAIL: script does not contain '%s'. "
+                            "Script: '%s...'. Letting it through — user can edit in preview.",
+                            check_name,
+                            target[:120],
                         )
 
             elif name == "camera_varies_between_scenes":
