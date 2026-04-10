@@ -607,11 +607,11 @@ async def test_run_director_gemini_error_raises_director_step() -> None:
 async def test_run_director_validator_self_correction() -> None:
     """Primer intento falla validator → segundo intento devuelve payload válido."""
     service = VideoStudioService()
-    fake_agent = _make_agent_config(validators=["ends_with_product_name"])
+    fake_agent = _make_agent_config(validators=["camera_varies_between_scenes"])
 
     bad_payload = _valid_combo_payload()
-    bad_payload["ends_with_product_name"] = False
-    bad_payload["script_part_b"] = "Comprá ya y mejorá tu vida."
+    bad_payload["cinematic_camera_a"] = "LOW_ANGLE_HERO"
+    bad_payload["cinematic_camera_b"] = "LOW_ANGLE_HERO"  # same camera → validator fails
 
     good_payload = _valid_combo_payload()
 
@@ -635,7 +635,7 @@ async def test_run_director_validator_self_correction() -> None:
     ):
         result = await service.run_director(_make_request())
 
-    assert result.ends_with_product_name is True
+    assert result.cinematic_camera_a != result.cinematic_camera_b
     assert mock_gemini.await_count == 2
 
 
