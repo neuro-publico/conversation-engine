@@ -65,10 +65,12 @@ class VideoStudioDraftReadyPayload(BaseModel):
     # ── Common fields (all styles) ──
     selected_pattern_key: str
     selection_reasoning: str
-    script_part_a: str
+    # Optional because product-modeling has no script (silent video).
+    script_part_a: Optional[str] = None
     script_part_b: Optional[str] = None
-    ends_with_product_name: bool
-    viral_hook_first_3_seconds: str
+    # Optional because product-modeling has no script to check.
+    ends_with_product_name: Optional[bool] = None
+    viral_hook_first_3_seconds: Optional[str] = None
 
     # ── Kling-style fields (sassy-object, animated-problem) ──
     # `concept_visual_brief` is the legacy single-image brief that ecommerce
@@ -135,6 +137,14 @@ class VideoStudioDraftReadyPayload(BaseModel):
     ugc_scene_a_visual_brief: Optional[str] = None
     ugc_scene_b_visual_brief: Optional[str] = None
     ugc_scene_b_includes_face: Optional[bool] = None
+
+    # ── Phase 2 — Product Modeling fields ──
+    # Silent avatar holding the product, animated by Kling V3 Pro (no audio).
+    # The director emits a static scene brief (for image generation) and
+    # a kling_animation_prompt with 3 emotional beats (for video animation).
+    modeling_scene_brief: Optional[str] = None
+    kling_animation_prompt: Optional[str] = None
+    modeling_arc: Optional[List[Dict[str, str]]] = None
 
 
 class VideoStudioCallbackPayload(BaseModel):
