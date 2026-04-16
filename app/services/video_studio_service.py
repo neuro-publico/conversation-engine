@@ -470,6 +470,8 @@ class VideoStudioService(VideoStudioServiceInterface):
         """
         if style_id == "ugc-testimonial":
             return self._build_ugc_response_schema(is_combo=is_combo)
+        if style_id == "product-modeling":
+            return self._build_modeling_response_schema()
         beat_schema = {
             "type": "OBJECT",
             "properties": {
@@ -543,6 +545,57 @@ class VideoStudioService(VideoStudioServiceInterface):
             # brief so ecommerce can generate a second base image for Part B.
             if style_id == "animated-problem":
                 required.append("concept_visual_brief_b")
+
+        return {
+            "type": "OBJECT",
+            "properties": properties,
+            "required": required,
+        }
+
+    def _build_modeling_response_schema(self) -> Dict[str, Any]:
+        """Schema para el director de product-modeling (Kling V3 Pro silent).
+
+        Product-modeling is a single silent clip (no combo, no script).
+        The director emits:
+          - selected_pattern_key + selection_reasoning (same as all directors)
+          - modeling_scene_brief: STATIC composition for Gemini Image
+          - kling_animation_prompt: what Kling should animate (3 emotional beats)
+          - viral_hook_first_3_seconds: optional visual hook description
+
+        NO script_part_a/b, NO cinematic_*, NO ugc_*, NO voice_tone/pace.
+        """
+        modeling_beat_schema = {
+            "type": "OBJECT",
+            "properties": {
+                "timing": {"type": "STRING"},
+                "action": {"type": "STRING"},
+                "emotion": {"type": "STRING"},
+            },
+            "required": ["timing", "action", "emotion"],
+        }
+
+        properties = {
+            "selected_pattern_key": {"type": "STRING"},
+            "selection_reasoning": {"type": "STRING"},
+            "modeling_scene_brief": {"type": "STRING"},
+            "kling_animation_prompt": {"type": "STRING"},
+            "modeling_arc": {
+                "type": "ARRAY",
+                "items": modeling_beat_schema,
+                "minItems": 3,
+                "maxItems": 3,
+            },
+            "viral_hook_first_3_seconds": {"type": "STRING"},
+        }
+
+        required = [
+            "selected_pattern_key",
+            "selection_reasoning",
+            "modeling_scene_brief",
+            "kling_animation_prompt",
+            "modeling_arc",
+            "viral_hook_first_3_seconds",
+        ]
 
         return {
             "type": "OBJECT",
@@ -796,6 +849,32 @@ class VideoStudioService(VideoStudioServiceInterface):
                             "composiciones visualmente distintas (ej: A=talking head con "
                             "producto visible, B=close-up de manos aplicando producto)."
                         )
+
+            # ── Phase 2 — Product Modeling validators ──
+            elif name == "modeling_scene_brief_min_chars":
+                min_c = int(param or "150")
+                txt = (parsed.get("modeling_scene_brief") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"modeling_scene_brief_min_chars: modeling_scene_brief tiene "
+                        f"{len(txt)} chars, mínimo {min_c}."
+                    )
+
+            elif name == "kling_animation_prompt_min_chars":
+                min_c = int(param or "100")
+                txt = (parsed.get("kling_animation_prompt") or "").strip()
+                if txt and len(txt) < min_c:
+                    errors.append(
+                        f"kling_animation_prompt_min_chars: kling_animation_prompt tiene "
+                        f"{len(txt)} chars, mínimo {min_c}."
+                    )
+
+            elif name == "modeling_arc_has_3_beats":
+                arc = parsed.get("modeling_arc")
+                if isinstance(arc, list) and len(arc) != 3:
+                    errors.append(
+                        f"modeling_arc_has_3_beats: modeling_arc tiene {len(arc)} beats, debe tener exactamente 3."
+                    )
 
             else:
                 logger.warning("[VIDEO_STUDIO] unknown validator '%s' — skipping", name)
