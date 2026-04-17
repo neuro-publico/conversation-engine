@@ -139,12 +139,17 @@ class VideoStudioDraftReadyPayload(BaseModel):
     ugc_scene_b_includes_face: Optional[bool] = None
 
     # ── Phase 2 — Product Modeling fields ──
-    # Silent avatar holding the product, animated by Kling V3 Pro (no audio).
-    # The director emits a static scene brief (for image generation) and
-    # a kling_animation_prompt with 3 emotional beats (for video animation).
+    # Avatar holding the product, animated by Kling V3 Pro.
+    # The director emits a static scene brief (for image generation),
+    # a kling_animation_prompt with 3 emotional beats (for video animation),
+    # and 3 script beats for the voice-over narration (synced with visual beats).
     modeling_scene_brief: Optional[str] = None
     kling_animation_prompt: Optional[str] = None
     modeling_arc: Optional[List[Dict[str, str]]] = None
+    # Voice-over script slices — one per beat, synced with modeling_arc timing.
+    script_beat_1: Optional[str] = None
+    script_beat_2: Optional[str] = None
+    script_beat_3: Optional[str] = None
 
 
 class VideoStudioCallbackPayload(BaseModel):

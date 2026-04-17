@@ -553,16 +553,17 @@ class VideoStudioService(VideoStudioServiceInterface):
         }
 
     def _build_modeling_response_schema(self) -> Dict[str, Any]:
-        """Schema para el director de product-modeling (Kling V3 Pro silent).
+        """Schema para el director de product-modeling (Kling V3 Pro).
 
-        Product-modeling is a single silent clip (no combo, no script).
-        The director emits:
-          - selected_pattern_key + selection_reasoning (same as all directors)
+        Product-modeling emits:
+          - selected_pattern_key + selection_reasoning
           - modeling_scene_brief: STATIC composition for Gemini Image
-          - kling_animation_prompt: what Kling should animate (3 emotional beats)
-          - viral_hook_first_3_seconds: optional visual hook description
-
-        NO script_part_a/b, NO cinematic_*, NO ugc_*, NO voice_tone/pace.
+          - kling_animation_prompt: what Kling animates (3 emotional beats)
+          - modeling_arc: array of 3 {timing, action, emotion} beats
+          - script_beat_1/2/3: voice-over narration per beat (synced with
+            the visual action). Each beat has its own script slice so
+            ElevenLabs can generate audio aligned with the visual timing.
+          - viral_hook_first_3_seconds: visual hook description
         """
         modeling_beat_schema = {
             "type": "OBJECT",
@@ -585,6 +586,11 @@ class VideoStudioService(VideoStudioServiceInterface):
                 "minItems": 3,
                 "maxItems": 3,
             },
+            # Voice-over script per beat — synced with modeling_arc timing.
+            # Each beat's narration plays while that beat's visual action runs.
+            "script_beat_1": {"type": "STRING"},
+            "script_beat_2": {"type": "STRING"},
+            "script_beat_3": {"type": "STRING"},
             "viral_hook_first_3_seconds": {"type": "STRING"},
         }
 
@@ -594,6 +600,9 @@ class VideoStudioService(VideoStudioServiceInterface):
             "modeling_scene_brief",
             "kling_animation_prompt",
             "modeling_arc",
+            "script_beat_1",
+            "script_beat_2",
+            "script_beat_3",
             "viral_hook_first_3_seconds",
         ]
 
@@ -875,6 +884,21 @@ class VideoStudioService(VideoStudioServiceInterface):
                     errors.append(
                         f"modeling_arc_has_3_beats: modeling_arc tiene {len(arc)} beats, debe tener exactamente 3."
                     )
+
+            elif name == "script_beats_not_empty":
+                for beat_key in ("script_beat_1", "script_beat_2", "script_beat_3"):
+                    txt = (parsed.get(beat_key) or "").strip()
+                    if not txt:
+                        errors.append(f"script_beats_not_empty: {beat_key} está vacío.")
+
+            elif name == "script_beats_max_words":
+                max_w = int(param or "15")
+                for beat_key in ("script_beat_1", "script_beat_2", "script_beat_3"):
+                    txt = (parsed.get(beat_key) or "").strip()
+                    if txt:
+                        wc = len(txt.split())
+                        if wc > max_w:
+                            errors.append(f"script_beats_max_words: {beat_key} tiene {wc} palabras, máximo {max_w}.")
 
             else:
                 logger.warning("[VIDEO_STUDIO] unknown validator '%s' — skipping", name)
