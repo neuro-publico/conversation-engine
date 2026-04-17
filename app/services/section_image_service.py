@@ -17,10 +17,14 @@ from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.section_image_request import SectionImageRequest
 from app.responses.section_image_response import CtaButtonResponse, SectionImageResponse
+from app.services.prompt_config_service import PromptConfigService
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an expert e-commerce landing page designer specializing in high-converting sales funnels for Latin American markets.
+PROMPT_AGENT_ID_SYSTEM = "section_image_system"
+PROMPT_AGENT_ID_CTA_DETECTION = "section_image_cta_detection"
+
+FALLBACK_SYSTEM_PROMPT = """You are an expert e-commerce landing page designer specializing in high-converting sales funnels for Latin American markets.
 
 You will receive:
 1. A prompt describing the section style and layout
@@ -31,13 +35,10 @@ You will receive:
 CRITICAL — TEMPLATE vs PRODUCT DISTINCTION:
 - The STYLE REFERENCE image is a TEMPLATE that contains EXAMPLE/PLACEHOLDER products. These are NOT the real product.
 - You MUST REPLACE every example product, placeholder image, and sample photo in the template with the REAL PRODUCT PHOTO provided.
-- The REAL PRODUCT PHOTO must appear as-is — like a high-resolution photo cutout placed into the design.
 - NEVER keep the template's example products in the final image. The only product visible must be the one from the PRODUCT PHOTO.
 
 ABSOLUTE RULES:
-- NEVER redraw, reinterpret, re-render, or artistically recreate the real product
 - Every label, brand name, text on packaging, color, shape, and proportion of the REAL PRODUCT must be IDENTICAL to the provided photo
-- This is a LANDING PAGE SECTION — it must look like part of a real e-commerce funnel, NOT a social media ad
 - Mobile-first vertical layout
 - All text in the specified language
 - Professional, high-quality, ready-to-use section with good legibility and well-positioned elements
@@ -69,15 +70,16 @@ EDITING RULES:
 - If brand colors are provided, use them for any new or modified design elements
 - If pricing is provided, use the EXACT formatted values — do not change currency symbols, decimal separators, or format"""
 
-CTA_DETECTION_INSTRUCTION = """
-
-[INSTRUCCIÓN OBLIGATORIA DE TEXTO]
+FALLBACK_CTA_DETECTION = """[INSTRUCCIÓN OBLIGATORIA DE TEXTO]
 Primero responde en texto: ¿dónde vas a poner los botones CTA en la imagen? Escribe:
 BOTONES:
 - "texto del botón" en [ymin, xmin, ymax, xmax] coords 0-1000
 Si no hay botones en este tipo de sección, escribe: BOTONES: ninguno
 Solo detecta botones de acción (comprar, pedir, agregar al carrito). No detectes badges, labels o texto decorativo.
 Después de escribir esto, genera la imagen."""
+
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_SYSTEM, FALLBACK_SYSTEM_PROMPT)
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_CTA_DETECTION, FALLBACK_CTA_DETECTION)
 
 
 class SectionImageService:
@@ -98,7 +100,7 @@ class SectionImageService:
                 gc.collect()
 
     async def _do_generate(self, request: SectionImageRequest, t_start: float) -> SectionImageResponse:
-        prompt = self._build_prompt(request)
+        prompt = await self._build_prompt(request)
         image_urls = self._collect_image_urls(request)
         extra_params = {
             "aspect_ratio": request.image_format,
@@ -168,7 +170,7 @@ class SectionImageService:
         # Fallback to OpenAI
         try:
             logger.info("Trying section image fallback: openai/gpt-image-1")
-            fallback_prompt = self._build_prompt(request, include_cta_instruction=False)
+            fallback_prompt = await self._build_prompt(request, include_cta_instruction=False)
             image_bytes = await openai_image_edit(
                 image_urls=image_urls,
                 prompt=fallback_prompt,
@@ -208,11 +210,17 @@ class SectionImageService:
             )
             raise last_error
 
-    def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
-        parts = [EDIT_SYSTEM_PROMPT] if request.edit_mode else [SYSTEM_PROMPT]
+    async def _build_prompt(self, request: SectionImageRequest, include_cta_instruction: bool = True) -> str:
+        if request.edit_mode:
+            system_prompt = EDIT_SYSTEM_PROMPT
+        else:
+            system_prompt = await PromptConfigService.get(PROMPT_AGENT_ID_SYSTEM)
+
+        parts = [system_prompt]
 
         if include_cta_instruction and request.detect_cta_buttons:
-            parts.append(CTA_DETECTION_INSTRUCTION)
+            cta_instruction = await PromptConfigService.get(PROMPT_AGENT_ID_CTA_DETECTION)
+            parts.append(cta_instruction)
 
         if request.user_prompt:
             parts.append(request.user_prompt)
