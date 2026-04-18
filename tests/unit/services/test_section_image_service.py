@@ -1,7 +1,27 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from app.requests.section_image_request import SectionImageRequest
+from app.services.prompt_config_service import PromptConfigService
 from app.services.section_image_service import SectionImageService
+
+
+@pytest.fixture(autouse=True)
+def _clean_prompt_cache():
+    """Clear cache before each test so TTL caching doesn't leak across tests."""
+    PromptConfigService.invalidate()
+    yield
+    PromptConfigService.invalidate()
+
+
+@pytest.fixture(autouse=True)
+def _force_fallback(monkeypatch):
+    """Force PromptConfigService to fall back to hardcoded values by making agent-config fetch return None."""
+    monkeypatch.setattr(
+        "app.services.prompt_config_service.PromptConfigService._fetch",
+        AsyncMock(return_value=None),
+    )
 
 
 @pytest.fixture
@@ -102,56 +122,76 @@ class TestParseCtaButtons:
 
 class TestBuildPrompt:
 
-    def test_includes_system_prompt(self, service, base_request):
-        prompt = service._build_prompt(base_request)
+    async def test_includes_system_prompt(self, service, base_request):
+        prompt = await service._build_prompt(base_request)
         assert "expert e-commerce landing page designer" in prompt
 
-    def test_includes_cta_detection_when_enabled(self, service, base_request):
+    async def test_includes_cta_detection_when_enabled(self, service, base_request):
         base_request.detect_cta_buttons = True
-        prompt = service._build_prompt(base_request)
+        prompt = await service._build_prompt(base_request)
         assert "INSTRUCCIÓN OBLIGATORIA DE TEXTO" in prompt
         assert "BOTONES:" in prompt
 
-    def test_excludes_cta_detection_when_disabled(self, service, base_request):
+    async def test_excludes_cta_detection_when_disabled(self, service, base_request):
         base_request.detect_cta_buttons = False
-        prompt = service._build_prompt(base_request)
+        prompt = await service._build_prompt(base_request)
         assert "INSTRUCCIÓN OBLIGATORIA DE TEXTO" not in prompt
 
-    def test_excludes_cta_when_include_cta_false(self, service, base_request):
+    async def test_excludes_cta_when_include_cta_false(self, service, base_request):
         base_request.detect_cta_buttons = True
-        prompt = service._build_prompt(base_request, include_cta_instruction=False)
+        prompt = await service._build_prompt(base_request, include_cta_instruction=False)
         assert "INSTRUCCIÓN OBLIGATORIA DE TEXTO" not in prompt
 
-    def test_includes_product_info(self, service, base_request):
-        prompt = service._build_prompt(base_request)
+    async def test_includes_product_info(self, service, base_request):
+        prompt = await service._build_prompt(base_request)
         assert "AirPods Tercera Generación" in prompt
         assert "Bluetooth" in prompt
         assert "es" in prompt
 
-    def test_includes_prices(self, service, base_request):
-        prompt = service._build_prompt(base_request)
+    async def test_includes_prices(self, service, base_request):
+        prompt = await service._build_prompt(base_request)
         assert "29,990" in prompt or "29990" in prompt
         assert "44,985" in prompt or "44985" in prompt
 
-    def test_no_prices_when_none(self, service, base_request):
+    async def test_no_prices_when_none(self, service, base_request):
         base_request.price = None
         base_request.price_fake = None
-        prompt = service._build_prompt(base_request)
+        prompt = await service._build_prompt(base_request)
         assert "PRICING" not in prompt
 
-    def test_includes_user_prompt(self, service, base_request):
-        prompt = service._build_prompt(base_request)
+    async def test_includes_user_prompt(self, service, base_request):
+        prompt = await service._build_prompt(base_request)
         assert "Modifica esta imagen" in prompt
 
-    def test_includes_user_instructions(self, service, base_request):
+    async def test_includes_user_instructions(self, service, base_request):
         base_request.user_instructions = "Usa colores vibrantes"
-        prompt = service._build_prompt(base_request)
+        prompt = await service._build_prompt(base_request)
         assert "Usa colores vibrantes" in prompt
 
-    def test_no_user_instructions_when_none(self, service, base_request):
+    async def test_no_user_instructions_when_none(self, service, base_request):
         base_request.user_instructions = None
-        prompt = service._build_prompt(base_request)
+        prompt = await service._build_prompt(base_request)
         assert "Additional instructions" not in prompt
+
+    async def test_edit_mode_uses_edit_system_prompt(self, service, base_request):
+        base_request.edit_mode = True
+        prompt = await service._build_prompt(base_request)
+        assert "EDITING an existing section image" in prompt
+
+    async def test_generation_mode_does_not_include_edit_instructions(self, service, base_request):
+        base_request.edit_mode = False
+        prompt = await service._build_prompt(base_request)
+        assert "EDITING an existing section image" not in prompt
+
+    async def test_uses_agent_config_value_when_available(self, service, base_request):
+        with patch(
+            "app.services.prompt_config_service.PromptConfigService._fetch",
+            new=AsyncMock(side_effect=["DYNAMIC SYSTEM PROMPT", "DYNAMIC CTA"]),
+        ):
+            prompt = await service._build_prompt(base_request)
+        assert "DYNAMIC SYSTEM PROMPT" in prompt
+        assert "DYNAMIC CTA" in prompt
+        assert "expert e-commerce landing page designer" not in prompt
 
 
 class TestCollectImageUrls:
