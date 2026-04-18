@@ -139,6 +139,7 @@ class SubImageService:
                 last_error = None
 
                 for attempt in range(1, max_retries + 1):
+                    image_bytes = None
                     try:
                         if attempt > delay_after:
                             await asyncio.sleep(SUB_IMAGE_RETRY_DELAY_SECONDS)
@@ -150,7 +151,7 @@ class SubImageService:
                         )
 
                         s3_url = await self._compress_and_upload(image_bytes, request.owner_id)
-                        del image_bytes
+                        image_bytes = None  # release reference early (GC will collect)
 
                         asyncio.create_task(
                             log_prompt(
@@ -174,10 +175,8 @@ class SubImageService:
                             f"Sub-image {item.id} attempt {attempt}/{max_retries} failed: "
                             f"{type(e).__name__}: {str(e)[:200]}"
                         )
-                        try:
-                            del image_bytes
-                        except NameError:
-                            pass
+                        # release bytes reference if allocation succeeded mid-try
+                        image_bytes = None
 
                 # Fallback to OpenAI
                 try:
