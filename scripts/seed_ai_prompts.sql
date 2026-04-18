@@ -79,8 +79,95 @@ Después de escribir esto, genera la imagen.',
     'default'
 ) ON CONFLICT (agent_id) DO NOTHING;
 
+
+-- ---------------------------------------------------------------------------
+-- HTML sections (Universal Builder) — read by section_html_service.py via
+-- PromptConfigService. Same deployment story: hardcoded fallbacks exist in
+-- app/prompts/section_html_prompts.py, this seed just enables runtime editing.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO agent_configs (
+    agent_id,
+    description,
+    prompt,
+    provider_ai,
+    model_ai,
+    preferences,
+    project
+) VALUES (
+    'section_html_generate_system',
+    'System prompt for conversation-engine HTML section generation (initial create flow). Read by section_html_service._do_generate() with 60s cache and a hardcoded fallback.',
+    'REPLACE ME: seed-time copy of FALLBACK_GENERATE_SYSTEM_PROMPT from app/prompts/section_html_prompts.py. When bringing up dev/prod, paste the full fallback value in here. Leaving this placeholder is harmless — the service uses the hardcoded fallback automatically.',
+    'gemini',
+    'gemini-3.1-pro-preview',
+    '{"temperature": 1.0, "max_output_tokens": 14336, "thinking_level": "low"}'::jsonb,
+    'default'
+) ON CONFLICT (agent_id) DO NOTHING;
+
+INSERT INTO agent_configs (
+    agent_id,
+    description,
+    prompt,
+    provider_ai,
+    model_ai,
+    preferences,
+    project
+) VALUES (
+    'section_html_edit_system',
+    'System prompt for conversation-engine HTML section editing (chat-driven edits). Read by section_html_service.edit_section_html() with 60s cache and a hardcoded fallback.',
+    'REPLACE ME: seed-time copy of FALLBACK_EDIT_SYSTEM_PROMPT from app/prompts/section_html_prompts.py.',
+    'gemini',
+    'gemini-3.1-pro-preview',
+    '{"temperature": 1.0, "max_output_tokens": 32768, "thinking_level": "low"}'::jsonb,
+    'default'
+) ON CONFLICT (agent_id) DO NOTHING;
+
+INSERT INTO agent_configs (
+    agent_id,
+    description,
+    prompt,
+    provider_ai,
+    model_ai,
+    preferences,
+    project
+) VALUES (
+    'section_html_image_orchestrator',
+    'System prompt for orchestrating image generation prompts from HTML (one prompt per placehold.co). Read by section_html_service.orchestrate_image_prompts() with 60s cache and a hardcoded fallback.',
+    'REPLACE ME: seed-time copy of FALLBACK_IMAGE_ORCHESTRATOR_PROMPT from app/prompts/section_html_prompts.py.',
+    'gemini',
+    'gemini-3.1-pro-preview',
+    '{"temperature": 1.0, "max_output_tokens": 14336, "thinking_level": "low"}'::jsonb,
+    'default'
+) ON CONFLICT (agent_id) DO NOTHING;
+
+INSERT INTO agent_configs (
+    agent_id,
+    description,
+    prompt,
+    provider_ai,
+    model_ai,
+    preferences,
+    project
+) VALUES (
+    'section_html_template_studio',
+    'System prompt for generating reusable HTML templates via chat in the template studio. Read by section_html_service.generate_template_html() with 60s cache and a hardcoded fallback.',
+    'REPLACE ME: seed-time copy of FALLBACK_TEMPLATE_STUDIO_PROMPT from app/prompts/section_html_prompts.py.',
+    'gemini',
+    'gemini-3.1-pro-preview',
+    '{"temperature": 1.0, "max_output_tokens": 14336, "thinking_level": "low"}'::jsonb,
+    'default'
+) ON CONFLICT (agent_id) DO NOTHING;
+
+
 -- Sanity check
 SELECT agent_id, LEFT(prompt, 80) AS preview, LENGTH(prompt) AS chars, provider_ai, model_ai, updated_at
 FROM agent_configs
-WHERE agent_id IN ('section_image_system', 'section_image_cta_detection')
+WHERE agent_id IN (
+    'section_image_system',
+    'section_image_cta_detection',
+    'section_html_generate_system',
+    'section_html_edit_system',
+    'section_html_image_orchestrator',
+    'section_html_template_studio'
+)
 ORDER BY agent_id;

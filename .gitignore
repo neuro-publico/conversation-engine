@@ -37,4 +37,4 @@ logs/
 .venv
 
 # Pinecone-related cache
-pinecone.cache
+pinecone.cachevenv39_backup/

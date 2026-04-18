@@ -11,15 +11,19 @@ from app.middlewares.auth_middleware import require_api_key, require_auth
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
 from app.requests.direct_scrape_request import DirectScrapeRequest
+from app.requests.edit_section_html_request import ChatMessage, EditSectionHtmlRequest, TemplateGenerateRequest
 from app.requests.generate_audio_request import GenerateAudioRequest
 from app.requests.generate_image_request import GenerateImageRequest
 from app.requests.generate_pdf_request import GeneratePdfRequest
 from app.requests.generate_video_request import GenerateVideoRequest
 from app.requests.message_request import MessageRequest
+from app.requests.orchestrate_images_request import OrchestrateImagesRequest
 from app.requests.product_scraping_request import ProductScrapingRequest
 from app.requests.recommend_product_request import RecommendProductRequest
 from app.requests.resolve_funnel_request import ResolveFunnelRequest
+from app.requests.section_html_request import SectionHtmlRequest
 from app.requests.section_image_request import SectionImageRequest
+from app.requests.sub_image_request import GenerateSubImagesRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.requests.video_studio_draft_request import VideoStudioDraftRequest
 from app.services.audio_service import AudioService
@@ -221,6 +225,22 @@ async def generate_audio(
     return await audio_service.generate_audio(requestGenerateAudio)
 
 
+@router.post("/preview-section-image-prompt/api-key")
+@require_api_key
+async def preview_section_image_prompt(
+    request: Request,
+    preview_request: dict,
+):
+    """Preview the full prompt that the AI receives for image generation. Read-only."""
+    from app.services.section_image_service import SectionImageService
+
+    service = SectionImageService()
+    return await service.preview_image_prompt(
+        user_prompt=preview_request.get("user_prompt"),
+        image_format=preview_request.get("image_format"),
+    )
+
+
 @router.post("/generate-section-image/api-key")
 @require_api_key
 async def generate_section_image(
@@ -341,6 +361,108 @@ async def video_studio_draft_async(
             "message": "Director Creative pipeline started.",
         },
     )
+
+
+# ------------------------------------------------------------------
+# Section HTML (code-based sections) — no LangChain
+# ------------------------------------------------------------------
+
+
+@router.post("/generate-section-html/api-key")
+@require_api_key
+async def generate_section_html(
+    request: Request,
+    section_request: SectionHtmlRequest,
+):
+    """Generate an HTML section from a template + product data. Server-to-server."""
+    from app.services.section_html_service import SectionHtmlService
+
+    service = SectionHtmlService()
+    response = await service.generate_section_html(section_request)
+    return response
+
+
+@router.post("/preview-section-prompt/api-key")
+@require_api_key
+async def preview_section_prompt(
+    request: Request,
+    preview_request: dict,
+):
+    """Preview the full prompt that the AI will receive. Read-only, no AI call."""
+    from app.services.section_html_service import SectionHtmlService
+
+    service = SectionHtmlService()
+    return await service.preview_prompt(
+        template_html=preview_request.get("template_html"),
+        copy_prompt=preview_request.get("copy_prompt"),
+        content_rules=preview_request.get("content_rules"),
+        template_notes=preview_request.get("template_notes"),
+        image_instructions=preview_request.get("image_instructions"),
+    )
+
+
+@router.post("/edit-section-html")
+@require_auth
+async def edit_section_html(
+    request: Request,
+    edit_request: EditSectionHtmlRequest,
+):
+    """Edit an existing HTML section via user chat instruction."""
+    from app.services.section_html_service import SectionHtmlService
+
+    edit_request.owner_id = request.state.user_info.get("data", {}).get("id", edit_request.owner_id)
+    service = SectionHtmlService()
+    response = await service.edit_section_html(edit_request)
+    return response
+
+
+@router.post("/generate-template-html/api-key")
+@require_api_key
+async def generate_template_html(
+    request: Request,
+    body: TemplateGenerateRequest,
+):
+    """Chat with AI to create/iterate template HTML. Internal use (backoffice)."""
+    from app.services.section_html_service import SectionHtmlService
+
+    history = None
+    if body.conversation_history:
+        history = [{"role": m.role, "content": m.content} for m in body.conversation_history]
+
+    service = SectionHtmlService()
+    response = await service.generate_template_html(
+        instruction=body.instruction,
+        conversation_history=history,
+    )
+    return response
+
+
+@router.post("/orchestrate-section-images/api-key")
+@require_api_key
+async def orchestrate_section_images(
+    request: Request,
+    orch_request: OrchestrateImagesRequest,
+):
+    """Analyze HTML and generate coherent image prompts for all placeholders."""
+    from app.services.section_html_service import SectionHtmlService
+
+    service = SectionHtmlService()
+    response = await service.orchestrate_image_prompts(orch_request)
+    return response
+
+
+@router.post("/generate-sub-images/api-key")
+@require_api_key
+async def generate_sub_images(
+    request: Request,
+    sub_request: GenerateSubImagesRequest,
+):
+    """Generate sub-element images for an HTML section. Server-to-server."""
+    from app.services.sub_image_service import SubImageService
+
+    service = SubImageService()
+    response = await service.generate_sub_images(sub_request)
+    return response
 
 
 @router.get("/health")
