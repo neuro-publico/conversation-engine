@@ -82,7 +82,64 @@ PromptConfigService.register_fallback(PROMPT_AGENT_ID_SYSTEM, FALLBACK_SYSTEM_PR
 PromptConfigService.register_fallback(PROMPT_AGENT_ID_CTA_DETECTION, FALLBACK_CTA_DETECTION)
 
 
+IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+
 class SectionImageService:
+
+    async def preview_image_prompt(
+        self, user_prompt: Optional[str] = None, image_format: Optional[str] = None
+    ) -> dict:
+        """Preview the full prompt that the AI receives for image generation. Read-only, no AI call.
+
+        Resolves the system prompt via `PromptConfigService` so the preview reflects
+        whatever is currently in agent-config (not the hardcoded fallback) — that's the
+        whole point of the dynamic prompts rollout.
+        """
+        request = SectionImageRequest(
+            product_name="[Nombre del producto]",
+            product_description="[Descripción del producto]",
+            language="[Idioma]",
+            product_image_url="[URL imagen del producto]",
+            template_image_url="[URL imagen de referencia del template]",
+            image_format=image_format or "9:16",
+            price_formatted="[Precio de venta formateado]",
+            price_fake_formatted="[Precio original formateado]",
+            sale_angle_name="[Ángulo de venta seleccionado]",
+            sale_angle_description="[Descripción del ángulo de venta]",
+            user_prompt=user_prompt or None,
+            detect_cta_buttons=True,
+            owner_id="preview",
+            brand_colors=["[Color primario]", "[Color secundario]"],
+        )
+
+        full_prompt = await self._build_prompt(request)
+        system_prompt = await PromptConfigService.get(PROMPT_AGENT_ID_SYSTEM)
+
+        blocks = []
+        if request.user_prompt and "user_prompt" in full_prompt:
+            blocks.append("Prompt de imagen (del template)")
+        if "Product name:" in full_prompt:
+            blocks.append("Producto (nombre + descripción)")
+        if "SALES ANGLE" in full_prompt:
+            blocks.append("Ángulo de venta")
+        if "PRICING" in full_prompt:
+            blocks.append("Precios")
+        if "BRAND COLORS" in full_prompt:
+            blocks.append("Colores de marca")
+        if "Language:" in full_prompt:
+            blocks.append("Idioma")
+        blocks.append("Imagen del producto (foto real)")
+        blocks.append("Imagen de referencia (template)")
+
+        return {
+            "system_prompt": system_prompt,
+            "user_prompt": full_prompt,
+            "blocks": blocks,
+            "models": {
+                "image_generation": IMAGE_MODEL,
+            },
+            "temperature": 1.0,
+        }
 
     async def generate_section_image(self, request: SectionImageRequest) -> SectionImageResponse:
         semaphore = get_image_semaphore()
