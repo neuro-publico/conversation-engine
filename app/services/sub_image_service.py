@@ -18,6 +18,7 @@ Model: ``gemini-3.1-flash-image-preview`` (same as section_image_service).
 import asyncio
 import gc
 import logging
+import os
 import time
 import uuid
 from typing import Optional
@@ -31,8 +32,6 @@ from app.helpers.image_compression_helper import compress_image_to_target
 from app.helpers.request_tracker import RequestTracker
 from app.requests.sub_image_request import GenerateSubImagesRequest, SubImageItem
 from app.responses.sub_image_response import GenerateSubImagesResponse
-
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +81,7 @@ class SubImageService:
             ref_urls = [request.product_image_url]
 
         # Generate all images in parallel (max 5 concurrent)
-        tasks = [
-            self._generate_one(item, request, ref_urls, semaphore)
-            for item in request.images
-        ]
+        tasks = [self._generate_one(item, request, ref_urls, semaphore) for item in request.images]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Build response
@@ -99,20 +95,22 @@ class SubImageService:
                 images[item.id] = result
 
         elapsed = int((time.monotonic() - t_start) * 1000)
-        asyncio.create_task(log_prompt(
-            log_type="sub_images",
-            prompt=f"{len(request.images)} images requested",
-            owner_id=request.owner_id,
-            model="gemini-3.1-flash-image-preview",
-            provider="gemini",
-            status="success" if not errors else "partial",
-            elapsed_ms=elapsed,
-            metadata={
-                "total": len(request.images),
-                "success": len(images),
-                "failed": len(errors),
-            },
-        ))
+        asyncio.create_task(
+            log_prompt(
+                log_type="sub_images",
+                prompt=f"{len(request.images)} images requested",
+                owner_id=request.owner_id,
+                model="gemini-3.1-flash-image-preview",
+                provider="gemini",
+                status="success" if not errors else "partial",
+                elapsed_ms=elapsed,
+                metadata={
+                    "total": len(request.images),
+                    "success": len(images),
+                    "failed": len(errors),
+                },
+            )
+        )
 
         return GenerateSubImagesResponse(images=images, errors=errors)
 
@@ -151,23 +149,23 @@ class SubImageService:
                             extra_params=extra_params,
                         )
 
-                        s3_url = await self._compress_and_upload(
-                            image_bytes, request.owner_id
-                        )
+                        s3_url = await self._compress_and_upload(image_bytes, request.owner_id)
                         del image_bytes
 
-                        asyncio.create_task(log_prompt(
-                            log_type="sub_image",
-                            prompt=prompt[:500],
-                            response_url=s3_url,
-                            owner_id=request.owner_id,
-                            model="gemini-3.1-flash-image-preview",
-                            provider="gemini",
-                            status="success",
-                            attempt_number=attempt,
-                            elapsed_ms=int((time.monotonic() - t_start) * 1000),
-                            metadata={"image_id": item.id},
-                        ))
+                        asyncio.create_task(
+                            log_prompt(
+                                log_type="sub_image",
+                                prompt=prompt[:500],
+                                response_url=s3_url,
+                                owner_id=request.owner_id,
+                                model="gemini-3.1-flash-image-preview",
+                                provider="gemini",
+                                status="success",
+                                attempt_number=attempt,
+                                elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                                metadata={"image_id": item.id},
+                            )
+                        )
                         return s3_url
 
                     except Exception as e:
@@ -183,29 +181,31 @@ class SubImageService:
 
                 # Fallback to OpenAI
                 try:
-                    logger.info(f"Sub-image {item.id} fallback: {SUB_IMAGE_FALLBACK_PROVIDER}/{SUB_IMAGE_FALLBACK_MODEL}")
+                    logger.info(
+                        f"Sub-image {item.id} fallback: {SUB_IMAGE_FALLBACK_PROVIDER}/{SUB_IMAGE_FALLBACK_MODEL}"
+                    )
                     image_bytes = await openai_image_edit(
                         image_urls=ref_urls,
                         prompt=prompt,
                         model_ia=SUB_IMAGE_FALLBACK_MODEL,
                         extra_params=extra_params,
                     )
-                    s3_url = await self._compress_and_upload(
-                        image_bytes, request.owner_id
-                    )
+                    s3_url = await self._compress_and_upload(image_bytes, request.owner_id)
                     del image_bytes
 
-                    asyncio.create_task(log_prompt(
-                        log_type="sub_image",
-                        prompt=prompt[:500],
-                        response_url=s3_url,
-                        owner_id=request.owner_id,
-                        model="gpt-image-1",
-                        provider="openai",
-                        status="fallback",
-                        elapsed_ms=int((time.monotonic() - t_start) * 1000),
-                        metadata={"image_id": item.id},
-                    ))
+                    asyncio.create_task(
+                        log_prompt(
+                            log_type="sub_image",
+                            prompt=prompt[:500],
+                            response_url=s3_url,
+                            owner_id=request.owner_id,
+                            model="gpt-image-1",
+                            provider="openai",
+                            status="fallback",
+                            elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                            metadata={"image_id": item.id},
+                        )
+                    )
                     return s3_url
 
                 except Exception as e:

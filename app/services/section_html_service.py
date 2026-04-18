@@ -26,12 +26,25 @@ from app.prompts.section_html_prompts import (
     PROMPT_AGENT_ID_HTML_TEMPLATE_STUDIO,
 )
 from app.requests.edit_section_html_request import EditSectionHtmlRequest
-from app.requests.orchestrate_images_request import OrchestrateImagesRequest, OrchestrateImagesResponse, OrchestratedImagePrompt
-from app.requests.sub_image_request import GenerateSubImagesRequest, SubImageItem
+from app.requests.orchestrate_images_request import (
+    OrchestratedImagePrompt,
+    OrchestrateImagesRequest,
+    OrchestrateImagesResponse,
+)
 from app.requests.section_html_request import SectionHtmlRequest
+from app.requests.sub_image_request import GenerateSubImagesRequest, SubImageItem
 from app.responses.section_html_response import SectionHtmlResponse
 from app.services.prompt_config_service import PromptConfigService
-from app.services.sub_image_service import SUB_IMAGE_MODEL as _SIM, SUB_IMAGE_FALLBACK_MODEL, SUB_IMAGE_FALLBACK_PROVIDER, SUB_IMAGE_MAX_RETRIES, SUB_IMAGE_DELAY_AFTER_ATTEMPT, SUB_IMAGE_RETRY_DELAY_SECONDS
+from app.services.sub_image_service import (
+    SUB_IMAGE_DELAY_AFTER_ATTEMPT,
+    SUB_IMAGE_FALLBACK_MODEL,
+    SUB_IMAGE_FALLBACK_PROVIDER,
+    SUB_IMAGE_MAX_RETRIES,
+)
+from app.services.sub_image_service import SUB_IMAGE_MODEL as _SIM
+from app.services.sub_image_service import (
+    SUB_IMAGE_RETRY_DELAY_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,14 +162,16 @@ class SectionHtmlService:
                 return await self._do_generate(request, t_start, model_override=FALLBACK_MODEL)
             except Exception as fallback_err:
                 elapsed = int((time.monotonic() - t_start) * 1000)
-                asyncio.create_task(log_prompt(
-                    log_type="section_html",
-                    prompt=self._build_generate_prompt(request)[:2000],
-                    owner_id=request.owner_id,
-                    status="error",
-                    error_message=str(fallback_err)[:500],
-                    elapsed_ms=elapsed,
-                ))
+                asyncio.create_task(
+                    log_prompt(
+                        log_type="section_html",
+                        prompt=self._build_generate_prompt(request)[:2000],
+                        owner_id=request.owner_id,
+                        status="error",
+                        error_message=str(fallback_err)[:500],
+                        elapsed_ms=elapsed,
+                    )
+                )
                 raise
 
     async def _do_generate(
@@ -178,20 +193,22 @@ class SectionHtmlService:
         html = self._extract_html(raw_response)
         elapsed = int((time.monotonic() - t_start) * 1000)
 
-        asyncio.create_task(log_prompt(
-            log_type="section_html",
-            prompt=prompt[:2000],
-            owner_id=request.owner_id,
-            model=model,
-            provider="gemini",
-            status="success",
-            elapsed_ms=elapsed,
-            metadata={
-                "section_role": request.section_role,
-                "html_length": len(html),
-                "had_template": bool(request.template_html),
-            },
-        ))
+        asyncio.create_task(
+            log_prompt(
+                log_type="section_html",
+                prompt=prompt[:2000],
+                owner_id=request.owner_id,
+                model=model,
+                provider="gemini",
+                status="success",
+                elapsed_ms=elapsed,
+                metadata={
+                    "section_role": request.section_role,
+                    "html_length": len(html),
+                    "had_template": bool(request.template_html),
+                },
+            )
+        )
 
         return SectionHtmlResponse(html_content=html, model_used=model)
 
@@ -258,81 +275,85 @@ class SectionHtmlService:
             # that would corrupt the section if accepted.
             input_html = request.current_html or ""
             if input_html.lstrip().startswith("<section") and "</section>" not in html:
-                asyncio.create_task(log_prompt(
+                asyncio.create_task(
+                    log_prompt(
+                        log_type="section_html_edit",
+                        prompt=prompt,
+                        response_text=raw_response,
+                        owner_id=request.owner_id,
+                        model=model,
+                        provider="gemini",
+                        status="error",
+                        error_message="AI output truncated (no </section>)",
+                        elapsed_ms=elapsed,
+                        metadata={
+                            "instruction": request.instruction,
+                            "current_html": request.current_html,
+                            "extracted_html": html,
+                            "truncation_detected": True,
+                        },
+                    )
+                )
+                raise Exception(
+                    "La respuesta del AI quedó incompleta (demasiado larga). " "Intenta con un cambio más específico."
+                )
+
+            # Full audit log: everything sent to Gemini + raw reply + metadata.
+            # Lets us replay/diagnose any edit that looked wrong to the user.
+            asyncio.create_task(
+                log_prompt(
                     log_type="section_html_edit",
                     prompt=prompt,
                     response_text=raw_response,
                     owner_id=request.owner_id,
                     model=model,
                     provider="gemini",
-                    status="error",
-                    error_message="AI output truncated (no </section>)",
+                    status="success",
                     elapsed_ms=elapsed,
                     metadata={
                         "instruction": request.instruction,
+                        "product_name": request.product_name,
+                        "language": request.language,
+                        "system_prompt": system_prompt,
                         "current_html": request.current_html,
                         "extracted_html": html,
-                        "truncation_detected": True,
+                        "input_html_length": len(request.current_html or ""),
+                        "output_html_length": len(html),
+                        "raw_response_length": len(raw_response or ""),
+                        "history_turns": len(request.conversation_history or []),
+                        "conversation_history": [
+                            {"role": m.role, "content": m.content} for m in (request.conversation_history or [])
+                        ],
+                        "sdk": "v2_interactions_streaming",
+                        "interaction_id": v2_interaction_id,
+                        "usage": v2_usage,
                     },
-                ))
-                raise Exception(
-                    "La respuesta del AI quedó incompleta (demasiado larga). "
-                    "Intenta con un cambio más específico."
                 )
-
-            # Full audit log: everything sent to Gemini + raw reply + metadata.
-            # Lets us replay/diagnose any edit that looked wrong to the user.
-            asyncio.create_task(log_prompt(
-                log_type="section_html_edit",
-                prompt=prompt,
-                response_text=raw_response,
-                owner_id=request.owner_id,
-                model=model,
-                provider="gemini",
-                status="success",
-                elapsed_ms=elapsed,
-                metadata={
-                    "instruction": request.instruction,
-                    "product_name": request.product_name,
-                    "language": request.language,
-                    "system_prompt": system_prompt,
-                    "current_html": request.current_html,
-                    "extracted_html": html,
-                    "input_html_length": len(request.current_html or ""),
-                    "output_html_length": len(html),
-                    "raw_response_length": len(raw_response or ""),
-                    "history_turns": len(request.conversation_history or []),
-                    "conversation_history": [
-                        {"role": m.role, "content": m.content}
-                        for m in (request.conversation_history or [])
-                    ],
-                    "sdk": "v2_interactions_streaming",
-                    "interaction_id": v2_interaction_id,
-                    "usage": v2_usage,
-                },
-            ))
+            )
 
             return SectionHtmlResponse(html_content=html, model_used=model)
 
         except Exception as e:
             elapsed = int((time.monotonic() - t_start) * 1000)
-            asyncio.create_task(log_prompt(
-                log_type="section_html_edit",
-                prompt=prompt,
-                owner_id=request.owner_id,
-                model=model,
-                provider="gemini",
-                status="error",
-                error_message=str(e)[:1000],
-                elapsed_ms=elapsed,
-                metadata={
-                    "instruction": request.instruction,
-                    "current_html": request.current_html,
-                    # If we failed before resolving the system prompt, log the
-                    # agent_id instead so ops can cross-check agent-config.
-                    "system_prompt_agent_id": PROMPT_AGENT_ID_HTML_EDIT_SYSTEM,
-                },
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="section_html_edit",
+                    prompt=prompt,
+                    owner_id=request.owner_id,
+                    model=model,
+                    provider="gemini",
+                    status="error",
+                    error_message=str(e)[:1000],
+                    elapsed_ms=elapsed,
+                    metadata={
+                        "instruction": request.instruction,
+                        "current_html": request.current_html,
+                        # If we failed before resolving the system prompt, log the
+                        # agent_id instead so ops can cross-check agent-config.
+                        "system_prompt_agent_id": PROMPT_AGENT_ID_HTML_EDIT_SYSTEM,
+                    },
+                )
+            )
             raise
 
     # ------------------------------------------------------------------
@@ -374,29 +395,33 @@ class SectionHtmlService:
             html = self._extract_html(raw_response)
             elapsed = int((time.monotonic() - t_start) * 1000)
 
-            asyncio.create_task(log_prompt(
-                log_type="template_studio",
-                prompt=instruction[:1000],
-                owner_id=owner_id,
-                model=model,
-                provider="gemini",
-                status="success",
-                elapsed_ms=elapsed,
-                metadata={"html_length": len(html)},
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="template_studio",
+                    prompt=instruction[:1000],
+                    owner_id=owner_id,
+                    model=model,
+                    provider="gemini",
+                    status="success",
+                    elapsed_ms=elapsed,
+                    metadata={"html_length": len(html)},
+                )
+            )
 
             return SectionHtmlResponse(html_content=html, model_used=model)
 
         except Exception as e:
             elapsed = int((time.monotonic() - t_start) * 1000)
-            asyncio.create_task(log_prompt(
-                log_type="template_studio",
-                prompt=instruction[:1000],
-                owner_id=owner_id,
-                status="error",
-                error_message=str(e)[:500],
-                elapsed_ms=elapsed,
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="template_studio",
+                    prompt=instruction[:1000],
+                    owner_id=owner_id,
+                    status="error",
+                    error_message=str(e)[:500],
+                    elapsed_ms=elapsed,
+                )
+            )
             raise
 
     # ------------------------------------------------------------------
@@ -428,29 +453,33 @@ class SectionHtmlService:
 
             prompts = self._parse_orchestrated_prompts(raw_response, placeholder_count)
 
-            asyncio.create_task(log_prompt(
-                log_type="orchestrate_images",
-                prompt=prompt[:1000],
-                owner_id=request.owner_id,
-                model=DEFAULT_MODEL,
-                provider="gemini",
-                status="success",
-                elapsed_ms=int((time.monotonic() - t_start) * 1000),
-                metadata={"placeholder_count": placeholder_count, "prompts_generated": len(prompts)},
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="orchestrate_images",
+                    prompt=prompt[:1000],
+                    owner_id=request.owner_id,
+                    model=DEFAULT_MODEL,
+                    provider="gemini",
+                    status="success",
+                    elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                    metadata={"placeholder_count": placeholder_count, "prompts_generated": len(prompts)},
+                )
+            )
 
             return OrchestrateImagesResponse(prompts=prompts)
 
         except Exception as e:
             logger.error(f"Image orchestration failed: {e}")
-            asyncio.create_task(log_prompt(
-                log_type="orchestrate_images",
-                prompt=prompt[:1000],
-                owner_id=request.owner_id,
-                status="error",
-                error_message=str(e)[:500],
-                elapsed_ms=int((time.monotonic() - t_start) * 1000),
-            ))
+            asyncio.create_task(
+                log_prompt(
+                    log_type="orchestrate_images",
+                    prompt=prompt[:1000],
+                    owner_id=request.owner_id,
+                    status="error",
+                    error_message=str(e)[:500],
+                    elapsed_ms=int((time.monotonic() - t_start) * 1000),
+                )
+            )
             return OrchestrateImagesResponse(prompts=[])
 
     # ------------------------------------------------------------------
@@ -569,7 +598,9 @@ class SectionHtmlService:
             parts.append(f"\nIMAGE INSTRUCTIONS FROM TEMPLATE CREATOR:\n{request.image_instructions}")
 
         parts.append(f"\nLANGUAGE: {request.language}")
-        parts.append(f"\nGenerate exactly {count} image prompts — one for each placeholder image in the HTML, in order of appearance.")
+        parts.append(
+            f"\nGenerate exactly {count} image prompts — one for each placeholder image in the HTML, in order of appearance."
+        )
 
         return "\n\n".join(parts)
 
@@ -675,6 +706,7 @@ class SectionHtmlService:
         the orchestrator reads the surrounding context, not the placeholder
         dimensions, to decide what each image should show."""
         import urllib.parse as _urllib
+
         safe = _urllib.quote_plus(alt_text or "image")
         return f"https://placehold.co/400x400/EEE/999?text={safe}"
 
@@ -698,12 +730,13 @@ class SectionHtmlService:
                 return match.group(0)
             # Try to use the alt text as the placeholder description.
             start = match.end()
-            tail = new_html[start:start + 200]
+            tail = new_html[start : start + 200]
             alt_match = re.search(r'alt\s*=\s*(["\'])([^"\']*)\1', tail, re.IGNORECASE)
             alt_text = alt_match.group(2) if alt_match else "imagen"
             logger.info(
                 "[EDIT_IMAGES] Replacing untrusted URL with placeholder. url=%s alt=%s",
-                url[:80], alt_text[:80],
+                url[:80],
+                alt_text[:80],
             )
             placeholder = self._url_to_placeholder(url, alt_text)
             # Preserve the rest of the <img ... > tag (alt, class, etc.).
@@ -740,7 +773,8 @@ class SectionHtmlService:
 
         logger.info(
             "[EDIT_IMAGES] Found %d new placeholders to generate (out of %d total in output)",
-            len(new_placeholders), len(current_placeholders),
+            len(new_placeholders),
+            len(current_placeholders),
         )
 
         # 3) Ask the orchestrator to generate a coherent prompt for EACH
@@ -773,6 +807,7 @@ class SectionHtmlService:
         # real URLs or are untouched placeholders we shouldn't change).
         try:
             from app.services.sub_image_service import SubImageService
+
             sub_image_service = SubImageService()
 
             # Build sub-image items only for NEW placeholders.
@@ -784,11 +819,13 @@ class SectionHtmlService:
                 if i not in prompts_by_idx:
                     continue
                 p = prompts_by_idx[i]
-                items.append(SubImageItem(
-                    id=f"edit_img_{i}",
-                    prompt=p.prompt,
-                    aspect_ratio=p.aspect_ratio or "1:1",
-                ))
+                items.append(
+                    SubImageItem(
+                        id=f"edit_img_{i}",
+                        prompt=p.prompt,
+                        aspect_ratio=p.aspect_ratio or "1:1",
+                    )
+                )
             if not items:
                 return normalized_html
 

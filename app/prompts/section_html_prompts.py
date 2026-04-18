@@ -14,7 +14,6 @@ service keeps working if agent-config is unreachable.
 
 from app.services.prompt_config_service import PromptConfigService
 
-
 # Agent IDs registered in agent-config (table agent_configs). Also listed in
 # scripts/seed_ai_prompts.sql for the initial seed.
 PROMPT_AGENT_ID_HTML_GENERATE_SYSTEM = "section_html_generate_system"
@@ -116,15 +115,7 @@ RULES:
 # Register hardcoded fallbacks at import time so PromptConfigService.get()
 # can fall back without raising if agent-config is unreachable or the agent_id
 # hasn't been seeded yet.
-PromptConfigService.register_fallback(
-    PROMPT_AGENT_ID_HTML_GENERATE_SYSTEM, FALLBACK_GENERATE_SYSTEM_PROMPT
-)
-PromptConfigService.register_fallback(
-    PROMPT_AGENT_ID_HTML_EDIT_SYSTEM, FALLBACK_EDIT_SYSTEM_PROMPT
-)
-PromptConfigService.register_fallback(
-    PROMPT_AGENT_ID_HTML_IMAGE_ORCHESTRATOR, FALLBACK_IMAGE_ORCHESTRATOR_PROMPT
-)
-PromptConfigService.register_fallback(
-    PROMPT_AGENT_ID_HTML_TEMPLATE_STUDIO, FALLBACK_TEMPLATE_STUDIO_PROMPT
-)
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_HTML_GENERATE_SYSTEM, FALLBACK_GENERATE_SYSTEM_PROMPT)
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_HTML_EDIT_SYSTEM, FALLBACK_EDIT_SYSTEM_PROMPT)
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_HTML_IMAGE_ORCHESTRATOR, FALLBACK_IMAGE_ORCHESTRATOR_PROMPT)
+PromptConfigService.register_fallback(PROMPT_AGENT_ID_HTML_TEMPLATE_STUDIO, FALLBACK_TEMPLATE_STUDIO_PROMPT)

@@ -84,11 +84,10 @@ PromptConfigService.register_fallback(PROMPT_AGENT_ID_CTA_DETECTION, FALLBACK_CT
 
 IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 
+
 class SectionImageService:
 
-    async def preview_image_prompt(
-        self, user_prompt: Optional[str] = None, image_format: Optional[str] = None
-    ) -> dict:
+    async def preview_image_prompt(self, user_prompt: Optional[str] = None, image_format: Optional[str] = None) -> dict:
         """Preview the full prompt that the AI receives for image generation. Read-only, no AI call.
 
         Resolves the system prompt via `PromptConfigService` so the preview reflects

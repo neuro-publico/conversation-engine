@@ -36,6 +36,7 @@ def _get_client():
     if GOOGLE_GEMINI_API_KEY and not os.environ.get("GOOGLE_API_KEY"):
         os.environ["GOOGLE_API_KEY"] = GOOGLE_GEMINI_API_KEY
     from google import genai  # noqa: WPS433 — lazy import on purpose
+
     return genai.Client()
 
 
@@ -98,14 +99,18 @@ async def call_gemini_freeform_v2(
         # Replay history as explicit input list; final turn is the user_message.
         inputs: List[Dict[str, Any]] = []
         for msg in conversation_history:
-            inputs.append({
-                "role": msg["role"],
-                "content": [{"type": "text", "text": msg["text"]}],
-            })
-        inputs.append({
-            "role": "user",
-            "content": [{"type": "text", "text": user_message}],
-        })
+            inputs.append(
+                {
+                    "role": msg["role"],
+                    "content": [{"type": "text", "text": msg["text"]}],
+                }
+            )
+        inputs.append(
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": user_message}],
+            }
+        )
         interaction_kwargs["input"] = inputs
     else:
         interaction_kwargs["input"] = user_message
@@ -146,14 +151,10 @@ async def call_gemini_freeform_v2(
                     last_status = getattr(final, "status", None)
             elif ev == "error":
                 err = getattr(chunk, "error", None)
-                raise GeminiTextV2Error(
-                    f"Gemini stream error: {getattr(err, 'message', str(err))}"
-                )
+                raise GeminiTextV2Error(f"Gemini stream error: {getattr(err, 'message', str(err))}")
 
         if not accumulated_text:
-            raise GeminiTextV2Error(
-                f"Empty response from Gemini. status={last_status} id={interaction_id}"
-            )
+            raise GeminiTextV2Error(f"Empty response from Gemini. status={last_status} id={interaction_id}")
 
         return {
             "text": accumulated_text,

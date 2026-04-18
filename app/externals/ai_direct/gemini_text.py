@@ -288,14 +288,18 @@ async def call_gemini_freeform(
     contents = []
     if conversation_history:
         for msg in conversation_history:
-            contents.append({
-                "role": msg["role"],
-                "parts": [{"text": msg["text"]}],
-            })
-    contents.append({
-        "role": "user",
-        "parts": [{"text": user_message}],
-    })
+            contents.append(
+                {
+                    "role": msg["role"],
+                    "parts": [{"text": msg["text"]}],
+                }
+            )
+    contents.append(
+        {
+            "role": "user",
+            "parts": [{"text": user_message}],
+        }
+    )
 
     generation_config: Dict[str, Any] = {
         "temperature": temperature,
@@ -378,7 +382,10 @@ async def call_gemini_freeform(
             last_error = e
             logger.warning(
                 "[GEMINI_FREEFORM] attempt %d/%d failed (status=%s): %s",
-                attempt, max_attempts, e.status, str(e)[:300],
+                attempt,
+                max_attempts,
+                e.status,
+                str(e)[:300],
             )
             if e.status in (400, 403):
                 raise
@@ -386,7 +393,9 @@ async def call_gemini_freeform(
             last_error = e
             logger.warning(
                 "[GEMINI_FREEFORM] attempt %d/%d unexpected: %s",
-                attempt, max_attempts, str(e)[:300],
+                attempt,
+                max_attempts,
+                str(e)[:300],
             )
 
     raise GeminiTextError(
