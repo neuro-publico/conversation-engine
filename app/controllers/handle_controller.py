@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.db.audit_logger import log_prompt
 from app.middlewares.auth_middleware import require_api_key, require_auth
+from app.requests.analyze_funnel_request import AnalyzeFunnelRequest
 from app.requests.brand_context_resolver_request import BrandContextResolverRequest
 from app.requests.copy_request import CopyRequest
 from app.requests.direct_scrape_request import DirectScrapeRequest
@@ -26,12 +27,15 @@ from app.requests.section_image_request import SectionImageRequest
 from app.requests.sub_image_request import GenerateSubImagesRequest
 from app.requests.variation_image_request import VariationImageRequest
 from app.requests.video_studio_draft_request import VideoStudioDraftRequest
+from app.responses.analyze_funnel_response import AnalyzeFunnelResponse
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
 from app.services.dropi_service import DropiService
 
 # Importaciones para Dropi
 from app.services.dropi_service_interface import DropiServiceInterface
+from app.services.funnel_analysis_service import FunnelAnalysisService
+from app.services.funnel_analysis_service_interface import FunnelAnalysisServiceInterface
 from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
@@ -463,6 +467,23 @@ async def generate_sub_images(
     service = SubImageService()
     response = await service.generate_sub_images(sub_request)
     return response
+
+
+@router.post("/analyze-funnel", response_model=AnalyzeFunnelResponse)
+@require_api_key
+async def analyze_funnel(
+    request: Request,
+    funnel_request: AnalyzeFunnelRequest,
+    service: FunnelAnalysisServiceInterface = Depends(FunnelAnalysisService),
+) -> AnalyzeFunnelResponse:
+    """Run the "Cerebro Estratégico" agent on ad funnel metrics.
+
+    Called server-to-server from ecommerce-service with the shared API key.
+    Applies traffic-light thresholds to the rates and returns a structured
+    action plan (critical bottleneck, winning assets, secondary optimizations,
+    today checklist).
+    """
+    return await service.analyze(funnel_request)
 
 
 @router.get("/health")

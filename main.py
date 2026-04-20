@@ -18,6 +18,8 @@ from app.services.video_service import VideoService
 from app.services.video_service_interface import VideoServiceInterface
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
+from app.services.funnel_analysis_service import FunnelAnalysisService
+from app.services.funnel_analysis_service_interface import FunnelAnalysisServiceInterface
 
 
 @asynccontextmanager
@@ -55,6 +57,7 @@ app.dependency_overrides[ImageServiceInterface] = ImageService
 app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingService
 app.dependency_overrides[VideoServiceInterface] = VideoService
 app.dependency_overrides[AudioServiceInterface] = AudioService
+app.dependency_overrides[FunnelAnalysisServiceInterface] = FunnelAnalysisService
 
 if __name__ == "__main__":
     import uvicorn
