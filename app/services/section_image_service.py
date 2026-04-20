@@ -169,6 +169,7 @@ class SectionImageService:
         last_error = None
 
         for attempt in range(1, max_retries + 1):
+            t_attempt_start = time.monotonic()
             try:
                 if attempt > delay_after:
                     await asyncio.sleep(delay_seconds)
@@ -188,6 +189,7 @@ class SectionImageService:
                 )
 
                 cta_buttons = self._parse_cta_buttons(text_response) if request.detect_cta_buttons else []
+                response_text_preview = (text_response or "")[:10000]
                 del text_response
                 s3_url = await self._compress_and_upload(image_bytes, request)
                 del image_bytes
@@ -198,6 +200,7 @@ class SectionImageService:
                     log_prompt(
                         log_type="section_image",
                         prompt=prompt,
+                        response_text=response_text_preview,
                         response_url=s3_url,
                         owner_id=request.owner_id,
                         model="gemini-3.1-flash-image-preview",
@@ -217,6 +220,19 @@ class SectionImageService:
                 last_error = e
                 logger.warning(
                     f"Section image attempt {attempt}/{max_retries} failed: {type(e).__name__}: {str(e) or repr(e)}"
+                )
+                asyncio.create_task(
+                    log_prompt(
+                        log_type="section_image",
+                        owner_id=request.owner_id,
+                        model="gemini-3.1-flash-image-preview",
+                        provider="gemini",
+                        status="attempt_failed",
+                        error_message=f"{type(e).__name__}: {str(e) or repr(e)}"[:1000],
+                        attempt_number=attempt,
+                        elapsed_ms=int((time.monotonic() - t_attempt_start) * 1000),
+                        metadata={"image_format": request.image_format},
+                    )
                 )
                 try:
                     del image_bytes  # noqa: F821
