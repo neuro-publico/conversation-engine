@@ -46,7 +46,6 @@ INSTRUCCIONES DE RESPUESTA:
 - **Para "Critical Bottleneck":** El problema #1 del anuncio. Debe incluir impacto financiero que duela.
 - **Para "Winning Assets":** Métricas sanas — palmada en la espalda al usuario.
 - **Para "Secondary Optimizations":** Mejoras de menor prioridad.
-- **Para "Today Checklist":** 3-5 acciones concretas y atómicas que el usuario puede hacer HOY.
 
 Responde SIEMPRE en español, en JSON estructurado según el schema proporcionado."""
 
@@ -94,14 +93,12 @@ RESPONSE_SCHEMA: Dict[str, Any] = {
                 "required": ["metric", "advice"],
             },
         },
-        "today_checklist": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
         "analysis_summary",
         "critical_bottleneck",
         "winning_assets",
         "secondary_optimizations",
-        "today_checklist",
     ],
 }
 

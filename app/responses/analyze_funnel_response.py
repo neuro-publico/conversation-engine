@@ -30,7 +30,6 @@ class AnalyzeFunnelResponse(BaseModel):
     critical_bottleneck: CriticalBottleneck
     winning_assets: List[WinningAsset] = Field(default_factory=list)
     secondary_optimizations: List[SecondaryOptimization] = Field(default_factory=list)
-    today_checklist: List[str] = Field(description="3-5 atomic tasks the user can mark as done in the UI")
     semaforo: Dict[str, str] = Field(
         default_factory=dict,
         description="Traffic light status per rate: 'red' | 'yellow' | 'green'",

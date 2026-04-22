@@ -55,11 +55,6 @@ def mock_gemini_response() -> dict:
         },
         "winning_assets": [{"asset_name": "CTR", "message": "¡NO TOQUES ESTO! Tu CTR es saludable."}],
         "secondary_optimizations": [{"metric": "ROAS", "advice": "Monitorea ROAS — está en zona amarilla."}],
-        "today_checklist": [
-            "Grabar 2 versiones nuevas del primer segundo del video",
-            "Revisar top 3 hooks de la competencia",
-            "Lanzar A/B test con el nuevo hook",
-        ],
     }
 
 
@@ -78,7 +73,7 @@ class TestFunnelAnalysisService:
         assert response.critical_bottleneck.title == "Hook Rate crítico"
         assert len(response.critical_bottleneck.action_plan) == 3
         assert len(response.winning_assets) == 1
-        assert len(response.today_checklist) == 3
+        assert len(response.secondary_optimizations) == 1
 
     async def test_analyze_populates_semaforo_from_rates(self, valid_request, mock_gemini_response):
         service = FunnelAnalysisService()
