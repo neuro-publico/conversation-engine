@@ -49,8 +49,30 @@ DROPI_API_KEY_PE: str = os.getenv("DROPI_API_KEY_PE", os.getenv("DROPI_API_KEY")
 DROPI_API_KEY_PY: str = os.getenv("DROPI_API_KEY_PY", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_EC: str = os.getenv("DROPI_API_KEY_EC", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_GT: str = os.getenv("DROPI_API_KEY_GT", os.getenv("DROPI_API_KEY"))
-# Cookie opcional para PY (algunas cuentas detrás de ALB requieren AWSALB/AWSALBCORS)
+# Cookies AWSALB/AWSALBCORS opcionales por país. Algunos ambientes de Dropi están detrás de AWS ALB
+# con session stickiness y requieren estas cookies para aceptar la request (formato "AWSALB=...; AWSALBCORS=...").
 DROPI_COOKIE_PY: str = os.getenv("DROPI_COOKIE_PY", "")
+DROPI_COOKIE_GT: str = os.getenv("DROPI_COOKIE_GT", "")
+DROPI_COOKIE_EC: str = os.getenv("DROPI_COOKIE_EC", "")
+DROPI_COOKIE_CO: str = os.getenv("DROPI_COOKIE_CO", "")
+DROPI_COOKIE_MX: str = os.getenv("DROPI_COOKIE_MX", "")
+DROPI_COOKIE_AR: str = os.getenv("DROPI_COOKIE_AR", "")
+DROPI_COOKIE_CL: str = os.getenv("DROPI_COOKIE_CL", "")
+DROPI_COOKIE_PE: str = os.getenv("DROPI_COOKIE_PE", "")
+
+
+def get_dropi_cookie(country: str = "co") -> str:
+    country_cookies = {
+        "co": DROPI_COOKIE_CO,
+        "mx": DROPI_COOKIE_MX,
+        "ar": DROPI_COOKIE_AR,
+        "cl": DROPI_COOKIE_CL,
+        "pe": DROPI_COOKIE_PE,
+        "py": DROPI_COOKIE_PY,
+        "ec": DROPI_COOKIE_EC,
+        "gt": DROPI_COOKIE_GT,
+    }
+    return country_cookies.get((country or "co").lower(), "")
 
 
 def get_dropi_host(country: str = "co") -> str:
