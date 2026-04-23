@@ -46,6 +46,7 @@ DROPI_API_KEY_CL: str = os.getenv("DROPI_API_KEY_CL", os.getenv("DROPI_API_KEY")
 DROPI_API_KEY_PE: str = os.getenv("DROPI_API_KEY_PE", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_PY: str = os.getenv("DROPI_API_KEY_PY", os.getenv("DROPI_API_KEY"))
 DROPI_API_KEY_EC: str = os.getenv("DROPI_API_KEY_EC", os.getenv("DROPI_API_KEY"))
+DROPI_API_KEY_GT: str = os.getenv("DROPI_API_KEY_GT", os.getenv("DROPI_API_KEY"))
 # Cookie opcional para PY (algunas cuentas detrás de ALB requieren AWSALB/AWSALBCORS)
 DROPI_COOKIE_PY: str = os.getenv("DROPI_COOKIE_PY", "")
 
@@ -70,6 +71,7 @@ def get_dropi_api_key(country: str = "co") -> str:
         "pe": DROPI_API_KEY_PE,
         "py": DROPI_API_KEY_PY,
         "ec": DROPI_API_KEY_EC,
+        "gt": DROPI_API_KEY_GT,
     }
     return country_keys.get(country.lower(), DROPI_API_KEY)
 
