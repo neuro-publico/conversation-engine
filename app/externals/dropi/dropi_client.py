@@ -4,9 +4,17 @@ from typing import Any, Dict
 
 import httpx
 
-from app.configurations.config import DROPI_COOKIE_PY, get_dropi_api_key, get_dropi_host
+from app.configurations.config import get_dropi_api_key, get_dropi_cookie, get_dropi_host
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_country_headers(country: str, headers: Dict[str, str]) -> None:
+    """Si el país tiene cookie AWSALB configurada, la agrega (sticky sessions en ALB)."""
+    cookie = get_dropi_cookie(country)
+    if cookie:
+        headers["accept"] = "application/json, text/plain, */*"
+        headers["Cookie"] = cookie
 
 
 def _parse_json_response(response: httpx.Response) -> Dict[str, Any]:
@@ -40,10 +48,7 @@ async def get_product_details(product_id: str, country: str = "co") -> Dict[str,
     country_normalized = country.lower() if country else "co"
     dropi_host = get_dropi_host(country)
     headers = {"dropi-integration-key": get_dropi_api_key(country_normalized)}
-    if country_normalized == "py":
-        headers["accept"] = "application/json, text/plain, */*"
-        if DROPI_COOKIE_PY:
-            headers["Cookie"] = DROPI_COOKIE_PY
+    _apply_country_headers(country_normalized, headers)
     url = f"{dropi_host}/integrations/products/v2/{product_id}"
 
     _log_dropi_request("GET", url, headers)
@@ -62,6 +67,7 @@ async def get_product_details(product_id: str, country: str = "co") -> Dict[str,
 async def get_departments(country: str = "co") -> Dict[str, Any]:
     country_normalized = country.lower() if country else "co"
     headers = {"dropi-integration-key": get_dropi_api_key(country_normalized)}
+    _apply_country_headers(country_normalized, headers)
     dropi_host = get_dropi_host(country)
     url = f"{dropi_host}/integrations/department"
     _log_dropi_request("GET", url, headers)
@@ -79,6 +85,7 @@ async def get_departments(country: str = "co") -> Dict[str, Any]:
 async def get_cities_by_department(department_id: int, rate_type: str, country: str = "co") -> Dict[str, Any]:
     country_normalized = country.lower() if country else "co"
     headers = {"dropi-integration-key": get_dropi_api_key(country_normalized), "Content-Type": "application/json"}
+    _apply_country_headers(country_normalized, headers)
     payload = {"department_id": department_id, "rate_type": rate_type}
     dropi_host = get_dropi_host(country)
     url = f"{dropi_host}/integrations/trajectory/bycity"
