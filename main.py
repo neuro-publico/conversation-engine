@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.controllers.handle_controller import router
 from app.db.audit_logger import init_pool, close_pool
@@ -16,6 +18,8 @@ from app.services.video_service import VideoService
 from app.services.video_service_interface import VideoServiceInterface
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
+from app.services.funnel_analysis_service import FunnelAnalysisService
+from app.services.funnel_analysis_service_interface import FunnelAnalysisServiceInterface
 
 
 @asynccontextmanager
@@ -32,6 +36,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Dev-only CORS: en local el builder llama directo a :8000 para evitar el
+# timeout del proxy de Next.js en operaciones largas (generación IA ~30-60s).
+if os.getenv("ENVIRONMENT", "dev") != "prod":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"http://localhost:(3000|3001|31\d\d|5173)",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 app.include_router(router)
 
 conversation_manager_singleton = ConversationManager()
@@ -42,6 +57,7 @@ app.dependency_overrides[ImageServiceInterface] = ImageService
 app.dependency_overrides[ProductScrapingServiceInterface] = ProductScrapingService
 app.dependency_overrides[VideoServiceInterface] = VideoService
 app.dependency_overrides[AudioServiceInterface] = AudioService
+app.dependency_overrides[FunnelAnalysisServiceInterface] = FunnelAnalysisService
 
 if __name__ == "__main__":
     import uvicorn

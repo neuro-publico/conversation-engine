@@ -82,7 +82,7 @@ async def log_prompt(
                 model,
                 provider,
                 prompt,
-                response_text[:5000] if response_text else None,
+                response_text[:100000] if response_text else None,
                 response_url,
                 json.dumps(brand_colors) if brand_colors else None,
                 status,
