@@ -21,6 +21,7 @@ from app.externals.agent_config.requests.agent_config_request import AgentConfig
 from app.externals.ai_direct.gemini_text import GeminiTextError, call_gemini_structured
 from app.requests.avatar_strategist_request import AvatarStrategistRequest
 from app.responses.avatar_strategist_response import AvatarEntry, AvatarStrategistResponse
+from app.services.avatar_strategist_service_interface import AvatarStrategistServiceInterface
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class AvatarStrategistError(Exception):
         self.raw = raw
 
 
-class AvatarStrategistService:
+class AvatarStrategistService(AvatarStrategistServiceInterface):
     """Multi-avatar campaign roster generator."""
 
     async def run(self, request: AvatarStrategistRequest) -> AvatarStrategistResponse:

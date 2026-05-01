@@ -29,6 +29,7 @@ from app.externals.agent_config.requests.agent_config_request import AgentConfig
 from app.externals.ai_direct.gemini_text import GeminiTextError, call_gemini_structured
 from app.requests.avatar_director_request import AvatarDirectorRequest
 from app.responses.avatar_director_response import AvatarDirectorResponse
+from app.services.avatar_director_service_interface import AvatarDirectorServiceInterface
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class AvatarDirectorError(Exception):
         self.raw = raw
 
 
-class AvatarDirectorService:
+class AvatarDirectorService(AvatarDirectorServiceInterface):
     """Single-call avatar prompt director."""
 
     async def run(self, request: AvatarDirectorRequest) -> AvatarDirectorResponse:

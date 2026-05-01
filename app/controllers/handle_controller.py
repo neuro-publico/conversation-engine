@@ -30,6 +30,10 @@ from app.requests.video_studio_draft_request import VideoStudioDraftRequest
 from app.responses.analyze_funnel_response import AnalyzeFunnelResponse
 from app.services.audio_service import AudioService
 from app.services.audio_service_interface import AudioServiceInterface
+from app.services.avatar_director_service import AvatarDirectorError, AvatarDirectorService
+from app.services.avatar_director_service_interface import AvatarDirectorServiceInterface
+from app.services.avatar_strategist_service import AvatarStrategistError, AvatarStrategistService
+from app.services.avatar_strategist_service_interface import AvatarStrategistServiceInterface
 from app.services.dropi_service import DropiService
 
 # Importaciones para Dropi
@@ -39,6 +43,8 @@ from app.services.funnel_analysis_service_interface import FunnelAnalysisService
 from app.services.image_service_interface import ImageServiceInterface
 from app.services.message_service_interface import MessageServiceInterface
 from app.services.product_scraping_service_interface import ProductScrapingServiceInterface
+from app.services.scene_composer_service import SceneComposerError, SceneComposerService
+from app.services.scene_composer_service_interface import SceneComposerServiceInterface
 from app.services.video_service import VideoService
 from app.services.video_service_interface import VideoServiceInterface
 
@@ -380,7 +386,9 @@ async def video_studio_draft_async(
 
 @router.post("/avatar-director/generate/api-key")
 @require_api_key
-async def avatar_director_generate(request: Request):
+async def avatar_director_generate(
+    request: Request, service: AvatarDirectorServiceInterface = Depends(AvatarDirectorService)
+):
     """Sync endpoint: call the avatar director agent and return the JSON prompt.
 
     The ecommerce backend calls this when the caller wants LLM-composed
@@ -389,7 +397,6 @@ async def avatar_director_generate(request: Request):
     backend should pass verbatim to Gemini Nano Banana Pro.
     """
     from app.requests.avatar_director_request import AvatarDirectorRequest
-    from app.services.avatar_director_service import AvatarDirectorError, AvatarDirectorService
 
     body = await request.json()
     try:
@@ -397,7 +404,6 @@ async def avatar_director_generate(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid avatar director request: {e}")
 
-    service = AvatarDirectorService()
     try:
         result = await service.run(director_request)
         return result.model_dump()
@@ -426,13 +432,11 @@ async def avatar_director_generate(request: Request):
 
 @router.post("/avatar-strategist/generate/api-key")
 @require_api_key
-async def avatar_strategist_generate(request: Request):
+async def avatar_strategist_generate(
+    request: Request, service: AvatarStrategistServiceInterface = Depends(AvatarStrategistService)
+):
     """Sync endpoint: call the avatar strategist agent and return the roster."""
     from app.requests.avatar_strategist_request import AvatarStrategistRequest
-    from app.services.avatar_strategist_service import (
-        AvatarStrategistError,
-        AvatarStrategistService,
-    )
 
     body = await request.json()
     try:
@@ -440,7 +444,6 @@ async def avatar_strategist_generate(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid avatar strategist request: {e}")
 
-    service = AvatarStrategistService()
     try:
         result = await service.run(strat_request)
         return result.model_dump()
@@ -467,9 +470,10 @@ async def avatar_strategist_generate(request: Request):
 
 @router.post("/scene-composer/generate/api-key")
 @require_api_key
-async def scene_composer_generate(request: Request):
+async def scene_composer_generate(
+    request: Request, service: SceneComposerServiceInterface = Depends(SceneComposerService)
+):
     from app.requests.scene_composer_request import SceneComposerRequest
-    from app.services.scene_composer_service import SceneComposerError, SceneComposerService
 
     body = await request.json()
     try:
@@ -477,7 +481,6 @@ async def scene_composer_generate(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid scene composer request: {e}")
 
-    service = SceneComposerService()
     try:
         result = await service.run(req)
         return result.model_dump()
