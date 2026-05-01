@@ -74,25 +74,73 @@ async def generate_image_variation(
                 raise Exception(f"Error {response.status}: {await response.text()}")
 
 
-def _build_image_part(image_base64: str, is_model_25: bool) -> dict:
+def _build_image_part(image_base64: str, is_model_25: bool, mime_type: str = "image/jpeg") -> dict:
     if is_model_25:
-        return {"inlineData": {"mimeType": "image/jpeg", "data": image_base64}}
-    return {"inline_data": {"mime_type": "image/jpeg", "data": image_base64}}
+        return {"inlineData": {"mimeType": mime_type, "data": image_base64}}
+    return {"inline_data": {"mime_type": mime_type, "data": image_base64}}
+
+
+def _parse_data_uri(data_uri: str) -> Optional[tuple[str, str]]:
+    """Parse a RFC-2397 data URI into (mime_type, base64_payload).
+
+    Expected shape: ``data:<mime>;base64,<payload>``. Returns ``None`` when the
+    URI is malformed or not base64-encoded — the caller drops the image in
+    that case so the rest of the references still reach the model.
+    """
+    try:
+        if not data_uri.startswith("data:"):
+            return None
+        header, _, payload = data_uri.partition(",")
+        if not payload:
+            return None
+        # header is like "data:image/webp;base64" — we only accept base64 form;
+        # URL-encoded text payloads are rejected because they would never be
+        # legitimate image bytes here.
+        if ";base64" not in header:
+            return None
+        mime_type = header[len("data:") :].split(";")[0] or "image/jpeg"
+        return mime_type, payload
+    except Exception:
+        return None
 
 
 async def _fetch_and_encode_images(
     image_urls: list[str], is_model_25: bool, session: Optional[aiohttp.ClientSession] = None
 ) -> list[dict]:
     async def _fetch_one(fetch_session: aiohttp.ClientSession, image_url: str) -> Optional[dict]:
+        # Phase 6 V4e (Apr 21 2026) — handle RFC-2397 data URIs locally.
+        # aiohttp.ClientSession.get() does not support the ``data:`` scheme;
+        # prior to this branch those requests threw InvalidURL and the avatar
+        # reference image silently disappeared from the Gemini payload
+        # (preset avatars reached CE as data URIs, ~180KB). The result was
+        # that every render for a preset-committed avatar went to Gemini with
+        # 0 reference images → fully hallucinated identity.
+        if image_url.startswith("data:"):
+            parsed = _parse_data_uri(image_url)
+            if parsed is None:
+                print(f"Error al procesar imagen (data URI malformada): len={len(image_url)}")
+                return None
+            mime_type, b64_payload = parsed
+            # Keep a compact log line; the payload itself is hundreds of KB.
+            print(f"[image_client] data URI parsed inline mime={mime_type} payload={len(b64_payload)}B")
+            return _build_image_part(b64_payload, is_model_25, mime_type=mime_type)
+
         try:
             async with fetch_session.get(image_url) as img_response:
                 if img_response.status == 200:
                     image_bytes = await img_response.read()
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                     del image_bytes  # Free raw bytes; only base64 string needed
-                    return _build_image_part(image_base64, is_model_25)
+                    # Infer mime from the response so Gemini receives a label
+                    # consistent with the actual bytes (webp/png/jpeg). The
+                    # hardcoded "image/jpeg" fallback covered edge cases
+                    # historically but occasionally confused the model.
+                    mime_type = (
+                        img_response.headers.get("Content-Type", "image/jpeg").split(";")[0].strip() or "image/jpeg"
+                    )
+                    return _build_image_part(image_base64, is_model_25, mime_type=mime_type)
         except Exception as e:
-            print(f"Error al procesar imagen de {image_url}: {type(e).__name__}: {str(e) or repr(e)}")
+            print(f"Error al procesar imagen de {image_url[:120]}: {type(e).__name__}: {str(e) or repr(e)}")
         return None
 
     if session:
@@ -247,6 +295,67 @@ async def google_image_with_text(
             return image_bytes, "\n".join(text_parts)
     except Exception as e:
         print(f"Error google_image_with_text: {type(e).__name__}: {str(e) or repr(e)}")
+        raise
+
+
+async def openai_image_generate(
+    prompt: str, model_ia: Optional[str] = None, extra_params: Optional[dict] = None
+) -> bytes:
+    """Text-to-image via OpenAI ``/v1/images/generations``.
+
+    Complements ``openai_image_edit`` (which requires a reference image).
+    Default model ``gpt-image-2`` (released Apr 21 2026) with quality="high"
+    and portrait aspect 1024x1536 to match our avatar 9:16 pipeline.
+
+    Accepted overrides in ``extra_params``:
+      - ``resolution``: one of the sizes the API accepts (default 1024x1536)
+      - ``quality``: "high" | "medium" | "low" (default "high")
+    """
+    url = "https://api.openai.com/v1/images/generations"
+    headers = {
+        "Authorization": f"Bearer {config.OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    if extra_params is None:
+        extra_params = {}
+
+    # Portrait 1024x1536 matches our 9:16 avatar render. gpt-image-2 also
+    # supports 4K tall (1536x2048+) if we want to stress the model — kept
+    # at 1536 for fair parity with the Gemini Nano Banana Pro baseline.
+    size = extra_params.get("resolution") or extra_params.get("size") or "1024x1536"
+    quality = extra_params.get("quality", "high")
+
+    payload = {
+        "model": model_ia or "gpt-image-2",
+        "prompt": prompt,
+        "size": size,
+        "quality": quality,
+        "n": 1,
+        # NOTE: gpt-image-2 (Apr 21 2026 release) does NOT accept
+        # ``response_format`` — it always returns b64_json inline. The older
+        # gpt-image-1 (edits endpoint) did accept it. Adding that param here
+        # triggers a 400 ``Unknown parameter: 'response_format'``.
+    }
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=180)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if "data" in result and len(result["data"]) > 0 and "b64_json" in result["data"][0]:
+                        b64_image = result["data"][0]["b64_json"]
+                        return base64.b64decode(b64_image)
+                    raise Exception(f"Unexpected OpenAI response shape: {str(result)[:300]}")
+                error_text = await response.text()
+                print(f"OpenAI gpt-image-2 HTTP {response.status}: {error_text[:400]}")
+                response.raise_for_status()
+    except aiohttp.ClientError as e:
+        print(f"OpenAI gpt-image-2 network error: {e}")
+        raise Exception(f"Network error calling OpenAI images/generations: {e}") from e
+    except Exception as e:
+        print(f"OpenAI gpt-image-2 error: {type(e).__name__}: {e}")
         raise
 
 

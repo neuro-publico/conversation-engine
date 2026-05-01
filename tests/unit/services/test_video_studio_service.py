@@ -260,6 +260,36 @@ def test_build_response_schema_branches_to_ugc_when_style_is_ugc_testimonial() -
 
 
 @pytest.mark.unit
+def test_build_response_schema_modeling_voiceover_requires_eight_script_beats() -> None:
+    """v19 product-modeling-voiceover must expose all eight narration beats.
+
+    ecommerce-service already reads script_beat_1..8 for TTS and falls back to
+    generic copy when CE only returns four, so this schema contract is critical
+    for angle-specific scripts to survive the webhook boundary.
+    """
+    service = VideoStudioService()
+
+    schema = service._build_response_schema(
+        is_combo=True,
+        style_id="product-modeling-voiceover",
+    )
+    props = schema["properties"]
+    required = schema["required"]
+
+    for idx in range(1, 9):
+        key = f"script_beat_{idx}"
+        assert key in props
+        assert key in required
+
+    # Silent/future product-modeling keeps backwards compatibility: the extra
+    # fields exist but only the original four are required.
+    silent_schema = service._build_response_schema(is_combo=True, style_id="product-modeling")
+    for idx in range(5, 9):
+        assert f"script_beat_{idx}" in silent_schema["properties"]
+        assert f"script_beat_{idx}" not in silent_schema["required"]
+
+
+@pytest.mark.unit
 def test_build_response_schema_ugc_non_combo_does_not_require_part_b() -> None:
     """Phase 6: non-combo UGC (single 15s clip) should NOT require script_part_b
     nor ugc_scene_b_description. The properties still exist as nullable but the
@@ -306,6 +336,47 @@ def test_build_response_schema_legacy_styles_return_kling_schema() -> None:
         assert "ugc_scene_a_visual_brief" not in props, f"UGC v2 field leaked for style={style}"
         assert "ugc_scene_b_visual_brief" not in props, f"UGC v2 field leaked for style={style}"
         assert "ugc_scene_b_includes_face" not in props, f"UGC v2 field leaked for style={style}"
+
+
+@pytest.mark.unit
+def test_modeling_voiceover_validators_cover_eight_beats_and_total_words() -> None:
+    service = VideoStudioService()
+    request = VideoStudioDraftRequest(
+        reference_id="ref-v19",
+        owner_id="owner-1",
+        product_name="Gummies Fiber",
+        product_description="Fibra prebiótica sin azúcar",
+        duration=30,
+        style_id="product-modeling-voiceover",
+    )
+
+    short_payload = {f"script_beat_{idx}": "palabras de prueba" for idx in range(1, 8)}
+    errors = service._validate_payload(
+        parsed=short_payload,
+        request=request,
+        validators=["script_beats_8_required_for_30s", "script_beats_total_words_between:80:95"],
+    )
+
+    assert any("script_beat_8" in error for error in errors)
+    assert any("script_beats_total_words_between" in error for error in errors)
+
+    valid_payload = {
+        "script_beat_1": "Llevaba cinco dias inflamada y sin poder ir al bano.",
+        "script_beat_2": "La panza se ponia dura y vestirme era una tortura.",
+        "script_beat_3": "Probe tes, dietas y probioticos caros, nada me funcionaba.",
+        "script_beat_4": "Hasta que mi nutriologa me insistio con Gummies Fiber.",
+        "script_beat_5": "Dos gomitas cada manana, facil y sin drama.",
+        "script_beat_6": "Y a la semana ya iba al bano como reloj.",
+        "script_beat_7": "Mi ropa volvio a quedar bien y me senti liviana.",
+        "script_beat_8": "Aca te dejo el link, pruebalo en serio y me cuentas.",
+    }
+    errors = service._validate_payload(
+        parsed=valid_payload,
+        request=request,
+        validators=["script_beats_8_required_for_30s", "script_beats_total_words_between:70:95"],
+    )
+
+    assert errors == []
 
 
 @pytest.mark.unit

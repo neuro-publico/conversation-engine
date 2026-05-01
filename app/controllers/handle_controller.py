@@ -368,6 +368,124 @@ async def video_studio_draft_async(
 
 
 # ------------------------------------------------------------------
+# Avatar Director (LLM-generated avatar hero-image prompt)
+#
+# Replaces the Kotlin template+random generator for the avatar hero
+# image. Given product context + wizard choices, the agent emits ONE
+# narratively-coherent JSON prompt (clothing + location + identity
+# anchors all tell the same story). Output goes directly to Gemini
+# Nano Banana Pro via the ecommerce backend.
+# ------------------------------------------------------------------
+
+
+@router.post("/avatar-director/generate/api-key")
+@require_api_key
+async def avatar_director_generate(request: Request):
+    """Sync endpoint: call the avatar director agent and return the JSON prompt.
+
+    The ecommerce backend calls this when the caller wants LLM-composed
+    avatar prompts (narratively coherent) instead of the legacy Kotlin
+    template+random generator. Response payload is the full JSON that the
+    backend should pass verbatim to Gemini Nano Banana Pro.
+    """
+    from app.requests.avatar_director_request import AvatarDirectorRequest
+    from app.services.avatar_director_service import AvatarDirectorError, AvatarDirectorService
+
+    body = await request.json()
+    try:
+        director_request = AvatarDirectorRequest(**body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid avatar director request: {e}")
+
+    service = AvatarDirectorService()
+    try:
+        result = await service.run(director_request)
+        return result.model_dump()
+    except AvatarDirectorError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "step": e.step,
+            },
+        )
+
+
+# ------------------------------------------------------------------
+# Avatar Strategist (LLM-composed multi-avatar campaign roster)
+#
+# Upgrade over avatar-director: one call returns N avatars, each tied to
+# a distinct sales angle (authority / identification / expertise / etc).
+# The angles are SYNTHESIZED by the LLM from the product context + image
+# + audience — not picked from a fixed menu.
+#
+# The ecommerce backend calls this once per product, gets the roster, and
+# then loops to render each prompt_json via the image model endpoint.
+# ------------------------------------------------------------------
+
+
+@router.post("/avatar-strategist/generate/api-key")
+@require_api_key
+async def avatar_strategist_generate(request: Request):
+    """Sync endpoint: call the avatar strategist agent and return the roster."""
+    from app.requests.avatar_strategist_request import AvatarStrategistRequest
+    from app.services.avatar_strategist_service import (
+        AvatarStrategistError,
+        AvatarStrategistService,
+    )
+
+    body = await request.json()
+    try:
+        strat_request = AvatarStrategistRequest(**body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid avatar strategist request: {e}")
+
+    service = AvatarStrategistService()
+    try:
+        result = await service.run(strat_request)
+        return result.model_dump()
+    except AvatarStrategistError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "step": e.step,
+            },
+        )
+
+
+# ------------------------------------------------------------------
+# Scene Composer (lightweight scene picker for avatar+product composition)
+#
+# Called right before generateModelingImage when the draft has a
+# preset-avatar (photo locked) + a product. Returns a scene_brief that
+# matches the PRODUCT's natural context (tech→desk, food→kitchen, etc.)
+# instead of inheriting the preset's original wizard setting.
+# Fast path (flash model, thinking disabled, ~5s avg).
+# ------------------------------------------------------------------
+
+
+@router.post("/scene-composer/generate/api-key")
+@require_api_key
+async def scene_composer_generate(request: Request):
+    from app.requests.scene_composer_request import SceneComposerRequest
+    from app.services.scene_composer_service import SceneComposerError, SceneComposerService
+
+    body = await request.json()
+    try:
+        req = SceneComposerRequest(**body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid scene composer request: {e}")
+
+    service = SceneComposerService()
+    try:
+        result = await service.run(req)
+        return result.model_dump()
+    except SceneComposerError as e:
+        raise HTTPException(status_code=500, detail={"error": str(e), "step": e.step})
+
+
+# ------------------------------------------------------------------
 # Section HTML (code-based sections) — no LangChain
 # ------------------------------------------------------------------
 

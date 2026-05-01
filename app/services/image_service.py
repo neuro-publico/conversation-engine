@@ -14,7 +14,7 @@ from app.configurations.config import (
 )
 from app.externals.agent_config.requests.agent_config_request import AgentConfigRequest
 from app.externals.google_vision.google_vision_client import analyze_image
-from app.externals.images.image_client import google_image, openai_image_edit
+from app.externals.images.image_client import google_image, openai_image_edit, openai_image_generate
 from app.externals.s3_upload.requests.s3_upload_request import S3UploadRequest
 from app.externals.s3_upload.responses.s3_upload_response import S3UploadResponse
 from app.externals.s3_upload.s3_upload_client import upload_file
@@ -81,7 +81,18 @@ class ImageService(ImageServiceInterface):
                     if attempt > delay_after:
                         await asyncio.sleep(delay_seconds)
 
-                    if provider and provider.lower() == "openai":
+                    # Provider routing:
+                    #  - "openai-gen" / "gpt-image-2" → text-to-image via
+                    #    gpt-image-2 (Apr 21 2026). Uses prompt only, no
+                    #    reference images. Path for avatar hero generations.
+                    #  - "openai"                       → gpt-image-1 edit
+                    #    (image-to-image, requires refs). Legacy path.
+                    #  - default                        → Gemini Nano Banana Pro.
+                    if provider and provider.lower() in ("openai-gen", "gpt-image-2"):
+                        image_content = await openai_image_generate(
+                            prompt=prompt, model_ia=model_ai or "gpt-image-2", extra_params=extra_params
+                        )
+                    elif provider and provider.lower() == "openai":
                         image_content = await openai_image_edit(
                             image_urls=url_images, prompt=prompt, model_ia=model_ai, extra_params=extra_params
                         )

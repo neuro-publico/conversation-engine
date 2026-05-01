@@ -78,12 +78,13 @@ class TestFalClient:
     @pytest.mark.asyncio
     async def test_post_without_api_key_raises(self):
         """Debe lanzar error si no hay API key."""
-        client = FalClient(api_key=None)
+        with patch("app.externals.fal.fal_client.FAL_AI_API_KEY", ""):
+            client = FalClient(api_key=None)
 
-        with pytest.raises(ValueError) as exc_info:
-            await client._post("test/path", {})
+            with pytest.raises(ValueError) as exc_info:
+                await client._post("test/path", {})
 
-        assert "FAL_AI_API_KEY" in str(exc_info.value)
+            assert "FAL_AI_API_KEY" in str(exc_info.value)
 
     # ========================================================================
     # Tests para tts_multilingual_v2

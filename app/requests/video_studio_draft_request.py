@@ -63,6 +63,16 @@ class VideoStudioDraftRequest(BaseModel):
     # llamadas existentes de sassy/animated que NO mandan este field.
     avatar_config: Optional[Dict[str, Any]] = None
 
+    # Phase 6 V4e (Apr 21 2026) — flag que le dice al director si el draft
+    # tiene una imagen de referencia del avatar (preset committed o custom
+    # build con foto). Cuando es True, el director modeling-voiceover DEBE
+    # omitir cualquier descripción de la persona (edad, piel, pelo, vibe)
+    # en modeling_scene_brief, porque la identidad viene de la imagen de
+    # referencia — describir la persona en texto genera descripciones
+    # contradictorias que diluyen el identity-lock de Gemini Image.
+    # Default False para no romper llamadas legacy que no lo mandan.
+    has_avatar_reference: bool = False
+
     # Async callback
     callback_url: Optional[str] = None
     callback_metadata: Optional[Dict[str, str]] = None
