@@ -21,6 +21,7 @@ from app.externals.agent_config.requests.agent_config_request import AgentConfig
 from app.externals.ai_direct.gemini_text import GeminiTextError, call_gemini_structured
 from app.requests.scene_composer_request import SceneComposerRequest
 from app.responses.scene_composer_response import SceneComposerResponse
+from app.services.scene_composer_service_interface import SceneComposerServiceInterface
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ VALID_SETTINGS = {
 }
 
 
-class SceneComposerService:
+class SceneComposerService(SceneComposerServiceInterface):
     async def run(self, request: SceneComposerRequest) -> SceneComposerResponse:
         t_start = time.monotonic()
 
