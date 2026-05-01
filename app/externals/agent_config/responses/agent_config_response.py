@@ -8,6 +8,13 @@ class AgentPreferences(BaseModel):
     max_tokens: int = 4096
     top_p: float = 1.0
     extra_parameters: Optional[Dict[str, Any]] = None
+    # Phase 2 V3 (Apr 18 2026) — per-agent Gemini thinking budget.
+    # One of: "High" | "Medium" | "Low" | "None" | null. None/null disables
+    # thinking (recommended for creative-writing-heavy agents where the
+    # model over-deliberates and produces flat outputs). High stays default
+    # for reasoning-heavy agents (UGC ad analysis, script validators).
+    # Only Gemini preview/flash models honor this — other models ignore it.
+    thinking_level: Optional[str] = None
 
 
 class Property(BaseModel):

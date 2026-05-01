@@ -145,6 +145,19 @@ class VideoStudioDraftReadyPayload(BaseModel):
     modeling_scene_brief: Optional[str] = None
     kling_animation_prompt: Optional[str] = None
     modeling_arc: Optional[List[Dict[str, str]]] = None
+    # Voice-over script slices — one per v19 narration beat.
+    # For product-modeling-voiceover 30s videos ecommerce-service reads
+    # script_beat_1..8 and splits them into Part A (1-4) + Part B (5-8).
+    # Keeping all eight here prevents the validated agent output from being
+    # dropped before the webhook reaches ecommerce-service.
+    script_beat_1: Optional[str] = None
+    script_beat_2: Optional[str] = None
+    script_beat_3: Optional[str] = None
+    script_beat_4: Optional[str] = None
+    script_beat_5: Optional[str] = None
+    script_beat_6: Optional[str] = None
+    script_beat_7: Optional[str] = None
+    script_beat_8: Optional[str] = None
 
 
 class VideoStudioCallbackPayload(BaseModel):

@@ -205,8 +205,38 @@ class VideoStudioService(VideoStudioServiceInterface):
 
             full_system_prompt = rendered_prompt + feedback_addendum
             user_message = (
-                f"Generá el plan completo del video para el producto '{request.product_name}'. "
-                f"Devolvé SOLO el JSON estructurado."
+                f"Genera el plan completo del video para el producto '{request.product_name}'. "
+                f"Devuelve SOLO el JSON estructurado."
+            )
+
+            # Phase 2 V3 — thinking_level is now configurable per agent via
+            # preferences (Apr 18 2026). The director agent for
+            # product-modeling-voiceover runs with thinking disabled
+            # (preferences.thinking_level = null) because "High" reasoning
+            # was producing over-deliberated, flat creative outputs — the
+            # model would justify a mediocre script with a long internal
+            # chain of thought instead of writing instinctively. Other
+            # director agents default to "High" if their config is silent.
+            thinking_level_pref: Optional[str] = None
+            try:
+                prefs = getattr(agent_config, "preferences", None)
+                if prefs is not None:
+                    # pydantic model → use getattr; dict-like → use get.
+                    thinking_level_pref = (
+                        getattr(prefs, "thinking_level", None)
+                        if not isinstance(prefs, dict)
+                        else prefs.get("thinking_level")
+                    )
+            except Exception:
+                thinking_level_pref = None
+            # Sentinel: if the agent explicitly set null/"" we disable.
+            # Accept "None" string for manual config convenience.
+            if isinstance(thinking_level_pref, str) and thinking_level_pref.lower() in (
+                "none", "null", "off", "", "disabled"
+            ):
+                thinking_level_pref = None
+            effective_thinking_level = (
+                thinking_level_pref if thinking_level_pref is not None else "High"
             )
 
             try:
@@ -218,7 +248,7 @@ class VideoStudioService(VideoStudioServiceInterface):
                     temperature=agent_config.preferences.temperature,
                     top_p=agent_config.preferences.top_p,
                     max_output_tokens=agent_config.preferences.max_tokens,
-                    thinking_level="High",
+                    thinking_level=effective_thinking_level,
                 )
             except GeminiTextError as e:
                 # Persistimos el error en prompt_logs antes de relanzar.
@@ -292,7 +322,7 @@ class VideoStudioService(VideoStudioServiceInterface):
                 "\n\n══════════════════════════════════\n"
                 "CORRECCIÓN OBLIGATORIA — tu intento anterior falló estas validaciones:\n"
                 + "\n".join(f"- {err}" for err in validation_errors)
-                + "\n\nDevolvé el JSON corregido respetando TODAS las reglas. Cero excusas."
+                + "\n\nDevuelve el JSON corregido respetando TODAS las reglas."
             )
 
             asyncio.create_task(
@@ -434,6 +464,14 @@ class VideoStudioService(VideoStudioServiceInterface):
             "ugc_avatar_hair_color": str(avatar_cfg.get("hair_color") or ""),
             "ugc_avatar_vibe": str(avatar_cfg.get("vibe") or ""),
             "ugc_avatar_setting": str(avatar_cfg.get("setting") or ""),
+            # Phase 6 V4e (Apr 21 2026) — identity-lock signal para el director
+            # modeling-voiceover. Cuando el draft trae una imagen de referencia
+            # (preset committed o custom build con foto), el director debe
+            # omitir toda descripción de la persona en modeling_scene_brief
+            # para evitar contradicciones con la foto real. Se expone como
+            # string "true" / "false" porque el template usa replace textual,
+            # no interpolación tipada.
+            "has_avatar_reference": "true" if request.has_avatar_reference else "false",
         }
 
         try:
@@ -470,8 +508,8 @@ class VideoStudioService(VideoStudioServiceInterface):
         """
         if style_id == "ugc-testimonial":
             return self._build_ugc_response_schema(is_combo=is_combo)
-        if style_id == "product-modeling":
-            return self._build_modeling_response_schema()
+        if style_id in ("product-modeling", "product-modeling-voiceover"):
+            return self._build_modeling_response_schema(style_id=style_id)
         beat_schema = {
             "type": "OBJECT",
             "properties": {
@@ -552,7 +590,7 @@ class VideoStudioService(VideoStudioServiceInterface):
             "required": required,
         }
 
-    def _build_modeling_response_schema(self) -> Dict[str, Any]:
+    def _build_modeling_response_schema(self, style_id: str = "") -> Dict[str, Any]:
         """Schema para el director de product-modeling (Kling V3 Pro silent).
 
         Product-modeling is a single silent clip (no combo, no script).
@@ -564,12 +602,17 @@ class VideoStudioService(VideoStudioServiceInterface):
 
         NO script_part_a/b, NO cinematic_*, NO ugc_*, NO voice_tone/pace.
         """
+        # Apr 22 2026 V2 — support 4-beat PAS+SP+CTA structure for 30s videos.
+        # `part` is optional on the beat schema; the director emits "A" / "B"
+        # only when duration=30 and produces 4 beats. For 5/10/15s the arc is
+        # still 3 beats and `part` is absent.
         modeling_beat_schema = {
             "type": "OBJECT",
             "properties": {
                 "timing": {"type": "STRING"},
                 "action": {"type": "STRING"},
                 "emotion": {"type": "STRING"},
+                "part": {"type": "STRING"},
             },
             "required": ["timing", "action", "emotion"],
         }
@@ -583,8 +626,23 @@ class VideoStudioService(VideoStudioServiceInterface):
                 "type": "ARRAY",
                 "items": modeling_beat_schema,
                 "minItems": 3,
-                "maxItems": 3,
+                "maxItems": 4,
             },
+            # Voice-over script per beat — synced with the v19 30s pattern.
+            # product-modeling-voiceover uses 8 narration beats:
+            #   A: hook, pain proof, failed attempts, product/spec
+            #   B: time hinge, tangible proof, emotional result, CTA
+            # ecommerce-service already reads script_beat_1..8 and joins them
+            # for TTS; if CE only emits four, ecommerce falls back to a generic
+            # local script and the selected sales angle is lost.
+            "script_beat_1": {"type": "STRING"},
+            "script_beat_2": {"type": "STRING"},
+            "script_beat_3": {"type": "STRING"},
+            "script_beat_4": {"type": "STRING"},
+            "script_beat_5": {"type": "STRING"},
+            "script_beat_6": {"type": "STRING"},
+            "script_beat_7": {"type": "STRING"},
+            "script_beat_8": {"type": "STRING"},
             "viral_hook_first_3_seconds": {"type": "STRING"},
         }
 
@@ -594,8 +652,21 @@ class VideoStudioService(VideoStudioServiceInterface):
             "modeling_scene_brief",
             "kling_animation_prompt",
             "modeling_arc",
+            "script_beat_1",
+            "script_beat_2",
+            "script_beat_3",
+            "script_beat_4",
             "viral_hook_first_3_seconds",
         ]
+        if style_id == "product-modeling-voiceover":
+            required.extend(
+                [
+                    "script_beat_5",
+                    "script_beat_6",
+                    "script_beat_7",
+                    "script_beat_8",
+                ]
+            )
 
         return {
             "type": "OBJECT",
@@ -870,10 +941,98 @@ class VideoStudioService(VideoStudioServiceInterface):
                     )
 
             elif name == "modeling_arc_has_3_beats":
+                # Legacy validator — kept for back-compat with old agents.
                 arc = parsed.get("modeling_arc")
                 if isinstance(arc, list) and len(arc) != 3:
                     errors.append(
                         f"modeling_arc_has_3_beats: modeling_arc tiene {len(arc)} beats, debe tener exactamente 3."
+                    )
+
+            elif name == "modeling_arc_has_3_or_4_beats":
+                # Apr 22 2026 — 30s videos use 4 beats (PAS+SP+CTA structure
+                # split into part A and part B). 5/10/15s still use 3 beats.
+                arc = parsed.get("modeling_arc")
+                if isinstance(arc, list) and len(arc) not in (3, 4):
+                    errors.append(
+                        f"modeling_arc_has_3_or_4_beats: modeling_arc tiene {len(arc)} beats, debe tener 3 o 4."
+                    )
+
+            elif name == "modeling_arc_4_beats_require_part_A_or_B":
+                # Apr 22 V3: este validator SOLO se activa si la arc de 4 beats
+                # declara algún `part` (indicando 30s con split A+B). Para la
+                # arc de 4 beats de 15s (Gancho/PruebaSocial/Explicación/CTA,
+                # single clip), el `part` no se requiere y el validator no
+                # debe gatillar.
+                arc = parsed.get("modeling_arc") or []
+                if isinstance(arc, list) and len(arc) == 4:
+                    parts = [str((b or {}).get("part", "")).strip().upper() for b in arc]
+                    has_any_part = any(p in ("A", "B") for p in parts)
+                    if has_any_part:
+                        # Si algún beat trae part, exigir exactamente 2+2 (30s mode)
+                        part_a = sum(1 for p in parts if p == "A")
+                        part_b = sum(1 for p in parts if p == "B")
+                        if part_a != 2 or part_b != 2:
+                            errors.append(
+                                "modeling_arc_4_beats_require_part_A_or_B: a 4-beat arc with "
+                                f"part labels needs exactly 2 A and 2 B (got A={part_a}, B={part_b})."
+                            )
+                    # Si ningún beat trae part, es 15s single clip — OK, skip.
+
+            elif name == "script_beats_not_empty":
+                # beat_4+ can be required by more specific voice-over validators.
+                for beat_key in ("script_beat_1", "script_beat_2", "script_beat_3"):
+                    txt = (parsed.get(beat_key) or "").strip()
+                    if not txt:
+                        errors.append(f"script_beats_not_empty: {beat_key} está vacío.")
+
+            elif name == "script_beats_8_required_for_30s":
+                if request.style_id == "product-modeling-voiceover" and request.duration == 30:
+                    for beat_key in [f"script_beat_{idx}" for idx in range(1, 9)]:
+                        txt = (parsed.get(beat_key) or "").strip()
+                        if not txt:
+                            errors.append(f"script_beats_8_required_for_30s: {beat_key} está vacío.")
+
+            elif name == "script_beat_4_required_for_30s":
+                # Legacy name — kept for back-compat. Apr 22 V3: now applies to
+                # BOTH 15s AND 30s (both use 4-beat structures).
+                arc = parsed.get("modeling_arc") or []
+                if isinstance(arc, list) and len(arc) == 4:
+                    txt = (parsed.get("script_beat_4") or "").strip()
+                    if not txt:
+                        errors.append(
+                            "script_beat_4_required: video with 4-beat arc requires "
+                            "non-empty script_beat_4 (CTA beat)."
+                        )
+
+            elif name == "script_beats_max_words":
+                max_w = int(param or "15")
+                # Validate all possible voice-over beats. beat_5..8 are used
+                # by product-modeling-voiceover 30s; older modeling agents can
+                # leave them empty and still pass.
+                for beat_key in [f"script_beat_{idx}" for idx in range(1, 9)]:
+                    txt = (parsed.get(beat_key) or "").strip()
+                    if txt:
+                        wc = len(txt.split())
+                        if wc > max_w:
+                            errors.append(f"script_beats_max_words: {beat_key} tiene {wc} palabras, máximo {max_w}.")
+
+            elif name == "script_beats_total_words_between":
+                min_w, max_w = 0, 10_000
+                if param:
+                    raw_parts = [p.strip() for p in param.split(":") if p.strip()]
+                    if len(raw_parts) >= 1:
+                        min_w = int(raw_parts[0])
+                    if len(raw_parts) >= 2:
+                        max_w = int(raw_parts[1])
+                beats = [
+                    (parsed.get(f"script_beat_{idx}") or "").strip()
+                    for idx in range(1, 9)
+                ]
+                total = sum(len(txt.split()) for txt in beats if txt)
+                if total < min_w or total > max_w:
+                    errors.append(
+                        f"script_beats_total_words_between: script beats tienen {total} palabras, "
+                        f"debe estar entre {min_w} y {max_w}."
                     )
 
             else:

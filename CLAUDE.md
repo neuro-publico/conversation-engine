@@ -104,6 +104,10 @@ LANGCHAIN_API_KEY          # LangSmith monitoring
 
 - Nunca hacer commits directos a `main`, `master` o `develop` — siempre crear una rama y abrir un PR
 - Siempre correr los tests antes de hacer commit. Si los tests no pasan, no hacer el commit
+- **`develop` SIEMPRE debe estar deployable** — solo mergear features completos y probados en local. NUNCA dejar trabajo incompleto en develop.
+- **Probar en local primero** — levantar servicios locales, hacer pruebas end-to-end en localhost. Solo mergear cuando el feature funciona completo.
+- **1 PR completo por feature** — no PRs incrementales que dejan el feature a medio hacer en dev.
+- **Si algo se mergeó y falló**: arreglar inmediatamente o revertir. Dev siempre limpio.
 
 ## Rules
 
