@@ -232,12 +232,14 @@ class VideoStudioService(VideoStudioServiceInterface):
             # Sentinel: if the agent explicitly set null/"" we disable.
             # Accept "None" string for manual config convenience.
             if isinstance(thinking_level_pref, str) and thinking_level_pref.lower() in (
-                "none", "null", "off", "", "disabled"
+                "none",
+                "null",
+                "off",
+                "",
+                "disabled",
             ):
                 thinking_level_pref = None
-            effective_thinking_level = (
-                thinking_level_pref if thinking_level_pref is not None else "High"
-            )
+            effective_thinking_level = thinking_level_pref if thinking_level_pref is not None else "High"
 
             try:
                 parsed, raw_response = await call_gemini_structured(
@@ -1024,10 +1026,7 @@ class VideoStudioService(VideoStudioServiceInterface):
                         min_w = int(raw_parts[0])
                     if len(raw_parts) >= 2:
                         max_w = int(raw_parts[1])
-                beats = [
-                    (parsed.get(f"script_beat_{idx}") or "").strip()
-                    for idx in range(1, 9)
-                ]
+                beats = [(parsed.get(f"script_beat_{idx}") or "").strip() for idx in range(1, 9)]
                 total = sum(len(txt.split()) for txt in beats if txt)
                 if total < min_w or total > max_w:
                     errors.append(

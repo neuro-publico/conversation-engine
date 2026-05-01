@@ -118,15 +118,11 @@ async def _fetch_and_encode_images(
         if image_url.startswith("data:"):
             parsed = _parse_data_uri(image_url)
             if parsed is None:
-                print(
-                    f"Error al procesar imagen (data URI malformada): len={len(image_url)}"
-                )
+                print(f"Error al procesar imagen (data URI malformada): len={len(image_url)}")
                 return None
             mime_type, b64_payload = parsed
             # Keep a compact log line; the payload itself is hundreds of KB.
-            print(
-                f"[image_client] data URI parsed inline mime={mime_type} payload={len(b64_payload)}B"
-            )
+            print(f"[image_client] data URI parsed inline mime={mime_type} payload={len(b64_payload)}B")
             return _build_image_part(b64_payload, is_model_25, mime_type=mime_type)
 
         try:
@@ -139,7 +135,9 @@ async def _fetch_and_encode_images(
                     # consistent with the actual bytes (webp/png/jpeg). The
                     # hardcoded "image/jpeg" fallback covered edge cases
                     # historically but occasionally confused the model.
-                    mime_type = img_response.headers.get("Content-Type", "image/jpeg").split(";")[0].strip() or "image/jpeg"
+                    mime_type = (
+                        img_response.headers.get("Content-Type", "image/jpeg").split(";")[0].strip() or "image/jpeg"
+                    )
                     return _build_image_part(image_base64, is_model_25, mime_type=mime_type)
         except Exception as e:
             print(f"Error al procesar imagen de {image_url[:120]}: {type(e).__name__}: {str(e) or repr(e)}")

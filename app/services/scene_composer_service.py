@@ -33,9 +33,19 @@ class SceneComposerError(Exception):
 
 
 VALID_SETTINGS = {
-    "home_kitchen", "home_bathroom", "home_bedroom", "home_living_room",
-    "home_student", "home_office", "gym", "office", "car", "cafe",
-    "outdoor_patio", "business_retail", "business_trade",
+    "home_kitchen",
+    "home_bathroom",
+    "home_bedroom",
+    "home_living_room",
+    "home_student",
+    "home_office",
+    "gym",
+    "office",
+    "car",
+    "cafe",
+    "outdoor_patio",
+    "business_retail",
+    "business_trade",
 }
 
 
@@ -61,8 +71,7 @@ class SceneComposerService:
         response_schema = self._build_response_schema()
 
         user_message = (
-            f"Pick the setting for product='{request.product_name or 'unspecified'}'. "
-            f"Return ONLY the JSON."
+            f"Pick the setting for product='{request.product_name or 'unspecified'}'. " f"Return ONLY the JSON."
         )
 
         # thinking disabled on flash for speed
